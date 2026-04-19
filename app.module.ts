@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import * as Joi from "joi";
 import { PostgresModule } from "./src/database/postgres.module";
 import { MongoModule } from "./src/database/mongo.module";
+import { UsersModule } from "./src/users/users.module";
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { MongoModule } from "./src/database/mongo.module";
         }),
         PostgresModule,
         MongoModule,
+        UsersModule,
     ],
     controllers: [],
     providers: [],
