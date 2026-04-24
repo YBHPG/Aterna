@@ -6,6 +6,7 @@ import { MongoModule } from "./src/database/mongo.module";
 import { UsersModule } from "./src/users/users.module";
 import { AuthModule } from "./src/auth/auth.module";
 import { CryptoModule } from "./src/crypto/crypto.module";
+import { MessagesModule } from "./src/messages/messages.module";
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './src/auth/jwt-auth.guard';
 
@@ -30,6 +31,7 @@ import { JwtAuthGuard } from './src/auth/jwt-auth.guard';
         UsersModule,
         AuthModule,
         CryptoModule,
+        MessagesModule,
     ],
     controllers: [],
     providers: [

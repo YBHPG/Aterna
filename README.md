@@ -96,6 +96,37 @@ Authorization: Bearer <access_token>
     - Перехват исключений при подмене `cipherText`, `iv`, `authTag` (включая усечённый тег).
     - Проверка невозможности расшифровки другим ключом.
 
+### 5. Документоориентированная модель сообщений
+
+В рамках концепции Zero-Trust хранилища реализована схема `MessageSchema` для MongoDB:
+
+- **Открытый текст не сохраняется.** Схема хранит только результаты работы `CryptoService`: `encryptedContent`, `iv`, `authTag` (строки Base64).
+- **Метаданные:** `userId` (индексировано для быстрого поиска), `recipientEmail`, `triggerDate` (запланированное время).
+- **Статусная модель:** Строгое перечисление `MessageStatus` (`pending`, `sent`, `cancelled`, `error`) со значением по умолчанию `pending`.
+- Использование возможностей NestJS Mongoose: `@Schema({ timestamps: true })` для автоматического ведения `createdAt`/`updatedAt`.
+
+### 6. REST API для отложенных сообщений
+
+Создан `MessagesModule` — единственная точка входа для создания новых зашифрованных посланий в будущее.
+
+- **`POST /messages`:**
+    - Полная защита через глобальный `JwtAuthGuard`. Идентификатор пользователя извлекается безопасно из токена.
+    - Строгая валидация входящих данных (`CreateMessageDto`): корректность email получателя, ограничение длины текста (не более 10 000 символов), и, главное, дата отправки **обязана быть в будущем**.
+- **Безопасность (`MessagesService`):**
+    - Входящий открытый текст письма немедленно шифруется.
+    - Оригинальная переменная с текстом письма принудительно перезаписывается в памяти сразу после шифрования (профилактика утечек через дамп памяти).
+    - Зашифрованный "контейнер" сохраняется в MongoDB.
+- **Тестирование:** Unit-тесты (`messages.service.spec.ts`) проверяют интеграцию с `CryptoService`, правильное формирование модели документа и логику "несохранения" открытого текста.
+
+**Тело запроса `POST /messages`:**
+```json
+{
+  "content": "Секретное послание в будущее для самого себя.",
+  "recipientEmail": "my-email@example.com",
+  "triggerDate": "2030-05-01T12:00:00.000Z"
+}
+```
+
 ---
 
 ## Переменные окружения
@@ -162,5 +193,7 @@ npm run test
 | UsersModule | Ready |
 | AuthModule (JWT) | Ready |
 | CryptoModule (AES-256-GCM) | Ready |
-| MessagesModule | In progress |
-| Queue Worker (delayed delivery) | In progress |
+| MessagesModule (Schema & Create API) | Ready |
+| MessagesModule (Read/Cancel API) | Pending |
+| Queue Worker (delayed delivery) | Pending |
+
