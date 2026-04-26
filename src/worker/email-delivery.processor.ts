@@ -1,0 +1,61 @@
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Job } from 'bullmq';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Message, MessageDocument, MessageStatus } from '../database/schemas/message.schema';
+import { CryptoService } from '../crypto/crypto.service';
+import { Logger } from '@nestjs/common';
+
+@Processor('email-delivery-queue')
+export class EmailDeliveryProcessor extends WorkerHost {
+  private readonly logger = new Logger(EmailDeliveryProcessor.name);
+
+  constructor(
+    @InjectModel(Message.name) private readonly messageModel: Model<MessageDocument>,
+    private readonly cryptoService: CryptoService,
+  ) {
+    super();
+  }
+
+  async process(job: Job<{ messageId: string }>): Promise<void> {
+    const { messageId } = job.data;
+    
+    if (!messageId) {
+      this.logger.warn(`No messageId provided in job ${job.id}`);
+      return;
+    }
+
+    const message = await this.messageModel.findById(messageId);
+
+    if (!message) {
+      this.logger.warn(`Message with id ${messageId} not found`);
+      return;
+    }
+
+    if (message.status === MessageStatus.CANCELLED) {
+      this.logger.log(`Message ${messageId} was cancelled. Skipping delivery.`);
+      return;
+    }
+
+    try {
+      const { encryptedContent, iv, authTag } = message;
+
+      const decryptedContent = this.cryptoService.decrypt(
+        encryptedContent,
+        iv,
+        authTag
+      );
+
+      // Заглушка для вызова внешней отправки (разрабатывается в следующей задаче)
+      this.logger.log(`Dummy email send for message ${messageId}. Decrypted content: "${decryptedContent}"`);
+      // В реальной системе здесь будет вызов почтового сервиса с decryptedContent
+
+      message.status = MessageStatus.SENT;
+      await message.save();
+    } catch (error) {
+      this.logger.error(`Failed to process message ${messageId}`, error instanceof Error ? error.stack : String(error));
+      message.status = MessageStatus.ERROR;
+      await message.save();
+    }
+  }
+}

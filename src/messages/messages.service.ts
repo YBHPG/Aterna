@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Model } from 'mongoose';
 import { CryptoService } from '../crypto/crypto.service';
 import { Message, MessageDocument } from '../database/schemas/message.schema';
@@ -10,6 +12,7 @@ export class MessagesService {
   constructor(
     @InjectModel(Message.name) private readonly messageModel: Model<MessageDocument>,
     private readonly cryptoService: CryptoService,
+    @InjectQueue('email-delivery-queue') private readonly emailQueue: Queue,
   ) {}
 
   async create(userId: string, dto: CreateMessageDto): Promise<MessageDocument> {
@@ -30,7 +33,19 @@ export class MessagesService {
       authTag,
     });
 
-    return message.save();
+    const savedMessage = await message.save();
+
+    // 8.4: Вычисляем задержку в миллисекундах
+    const delay = dto.triggerDate.getTime() - Date.now();
+
+    // 8.5: Публикуем задачу в очередь, передавая только ID документа
+    await this.emailQueue.add(
+      'send-email',
+      { messageId: savedMessage._id.toString() },
+      { delay }
+    );
+
+    return savedMessage;
   }
 }
 

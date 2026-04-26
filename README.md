@@ -127,6 +127,42 @@ Authorization: Bearer <access_token>
 }
 ```
 
+**Ответ:**
+```json
+{
+    "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "recipientEmail": "my-email@example.com",
+    "triggerDate": "2030-05-01T12:00:00.000Z",
+    "encryptedContent": "U2FsdGVkX1+Q8ZMjXoR/1Xyv5...",
+    "iv": "X8aF9DkV2LmN4PqR",
+    "authTag": "V2LmN4PqRX8aF9DkV2LmNw==",
+    "status": "pending",
+    "_id": "6628f2c5e53c4a2a1b9f8d7e",
+    "createdAt": "2026-04-24T10:30:00.000Z",
+    "updatedAt": "2026-04-24T10:30:00.000Z",
+    "__v": 0
+    "updatedAt": "2026-04-24T10:30:00.000Z",
+    "__v": 0
+}
+```
+
+### 7. Архитектура Worker-процесса и отложенная дешифровка
+
+Для изоляции ресурсоемких задач дешифровки и сетевых запросов к почтовому провайдеру от основного API реализована асинхронная архитектура с использованием BullMQ и Redis:
+
+- **Producer (`MessagesService`):**
+    - Рассчитывает задержку (`delay`) до наступления `triggerDate`.
+    - Помещает задачу в очередь `email-delivery-queue`, передавая в payload исключительно `messageId` (в целях безопасности).
+- **Standalone Worker Process (`WorkerModule`):**
+    - Запускается как независимый процесс без HTTP-интерфейса (`worker.main.ts`), что защищает Event Loop основного API.
+    - Инициализирует только необходимые соединения: MongoDB, Redis и криптографическое ядро.
+- **Consumer (`EmailDeliveryProcessor`):**
+    - Извлекает задачу из очереди точно в запланированное время.
+    - Валидирует статус: если сообщение имеет статус `cancelled` (отменено пользователем), задача немедленно прерывается.
+    - Восстанавливает оригинальный текст через `CryptoService.decrypt()` **исключительно в оперативной памяти** воркера на время отправки.
+    - Обновляет статус документа в MongoDB на `sent` (или `error` в случае сбоя).
+- **Тестирование:** Реализованы Unit-тесты (`email-delivery.processor.spec.ts`), гарантирующие, что для отмененных задач криптографический сервис не вызывается.
+
 ---
 
 ## Переменные окружения
@@ -195,5 +231,5 @@ npm run test
 | CryptoModule (AES-256-GCM) | Ready |
 | MessagesModule (Schema & Create API) | Ready |
 | MessagesModule (Read/Cancel API) | Pending |
-| Queue Worker (delayed delivery) | Pending |
+| Queue Worker (delayed delivery) | Ready |
 
