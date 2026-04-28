@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Model } from 'mongoose';
 import { CryptoService } from '../crypto/crypto.service';
-import { Message, MessageDocument } from '../database/schemas/message.schema';
+import { Message, MessageDocument, MessageStatus } from '../database/schemas/message.schema';
 import { CreateMessageDto } from './dto/create-message.dto';
 
 @Injectable()
@@ -42,10 +42,36 @@ export class MessagesService {
     await this.emailQueue.add(
       'send-email',
       { messageId: savedMessage._id.toString() },
-      { delay }
+      {
+        delay,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      }
     );
 
     return savedMessage;
+  }
+  async findAllByUser(userId: string): Promise<MessageDocument[]> {
+    return this.messageModel.find({ userId }).select('-encryptedContent -iv -authTag').exec();
+  }
+
+  async cancel(id: string, userId: string): Promise<MessageDocument> {
+    const document = await this.messageModel.findById(id).exec();
+    
+    if (!document) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (document.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to cancel this message');
+    }
+
+    if (document.status === MessageStatus.PENDING) {
+      document.status = MessageStatus.CANCELLED;
+      await document.save();
+    }
+
+    return document;
   }
 }
 

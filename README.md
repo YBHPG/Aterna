@@ -163,6 +163,25 @@ Authorization: Bearer <access_token>
     - Обновляет статус документа в MongoDB на `sent` (или `error` в случае сбоя).
 - **Тестирование:** Реализованы Unit-тесты (`email-delivery.processor.spec.ts`), гарантирующие, что для отмененных задач криптографический сервис не вызывается.
 
+### 8. API Личного кабинета (Дашборд и отмена)
+
+Реализованы дополнительные эндпоинты в `MessagesModule` для обслуживания UI-дашборда пользователя:
+
+- **`GET /messages`:**
+    - Возвращает массив запланированных писем текущего авторизованного пользователя.
+    - **Оптимизация и безопасность:** На уровне запроса к MongoDB исключаются поля `encryptedContent`, `iv`, `authTag`, чтобы не гонять зашифрованный payload по сети и оставить только полезные метаданные (`recipientEmail`, `triggerDate`, `status`).
+- **`PATCH /messages/:id/cancel`:**
+    - Позволяет отменить ожидающее отправки письмо (`pending` -> `cancelled`).
+    - Строгая **Resource-based authorization**: система проверяет, принадлежит ли указанное письмо запрашивающему пользователю (выбрасывает `ForbiddenException` при несовпадении `userId`).
+- **Архитектурный рефакторинг:** Основные файлы загрузки (`main.ts`, `app.module.ts`) и файлы микросервиса (`worker.main.ts`, `worker.module.ts`) аккуратно перенесены в соответствующие директории (`src/` и `src/worker/`) в соответствии со стандартами NestJS.
+
+### 9. Интеграция провайдера MailoPost и Rate Limiting
+
+Для фактической отправки писем подключен транзакционный провайдер MailoPost, а также настроена устойчивость воркера:
+- **`EmailModule`:** Новый модуль с интеграцией MailoPost Transactional API для отправки сформированного письма пользователю.
+- **Отказоустойчивость (Exponential Backoff):** При создании задачи в очередь передаются параметры `attempts: 3` и `backoff: exponential`, чтобы воркер умножал задержку при переповторе в случае недоступности внешнего API.
+- **Rate Limiting:** Настроен BullMQ Token Bucket лимитер для соблюдения квот почтового провайдера.
+
 ---
 
 ## Переменные окружения
@@ -189,6 +208,10 @@ JWT_SECRET=
 # AES-256-GCM master key (32 bytes, Base64)
 # Generate: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ENCRYPTION_KEY=
+
+# MailoPost
+MAILOPOST_API_TOKEN=
+MAILOPOST_FROM_EMAIL=
 ```
 
 ---
@@ -213,6 +236,12 @@ npm install
 npm run start:dev
 ```
 
+### Запуск Worker-процесса
+
+```bash
+npm run start:worker
+```
+
 ### Запуск тестов
 
 ```bash
@@ -230,6 +259,6 @@ npm run test
 | AuthModule (JWT) | Ready |
 | CryptoModule (AES-256-GCM) | Ready |
 | MessagesModule (Schema & Create API) | Ready |
-| MessagesModule (Read/Cancel API) | Pending |
+| MessagesModule (Read/Cancel API) | Ready |
 | Queue Worker (delayed delivery) | Ready |
 

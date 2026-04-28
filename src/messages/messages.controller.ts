@@ -1,6 +1,9 @@
 import {
   Controller,
   Post,
+  Get,
+  Patch,
+  Param,
   Body,
   Req,
   UseGuards,
@@ -24,6 +27,18 @@ export class MessagesController {
   create(@Req() req: Request, @Body() createMessageDto: CreateMessageDto) {
     const userId = (req.user as { userId: string }).userId;
     return this.messagesService.create(userId, createMessageDto);
+  }
+
+  @Get()
+  findAll(@Req() req: Request) {
+    const userId = (req.user as { userId: string }).userId;
+    return this.messagesService.findAllByUser(userId);
+  }
+
+  @Patch(':id/cancel')
+  cancel(@Param('id') id: string, @Req() req: Request) {
+    const userId = (req.user as { userId: string }).userId;
+    return this.messagesService.cancel(id, userId);
   }
 }
 

@@ -5,14 +5,21 @@ import { Model } from 'mongoose';
 import { Message, MessageDocument, MessageStatus } from '../database/schemas/message.schema';
 import { CryptoService } from '../crypto/crypto.service';
 import { Logger } from '@nestjs/common';
+import { EmailService } from '../email/email.service';
 
-@Processor('email-delivery-queue')
+@Processor('email-delivery-queue', {
+  limiter: {
+    max: 10,
+    duration: 1000,
+  },
+})
 export class EmailDeliveryProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailDeliveryProcessor.name);
 
   constructor(
     @InjectModel(Message.name) private readonly messageModel: Model<MessageDocument>,
     private readonly cryptoService: CryptoService,
+    private readonly emailService: EmailService,
   ) {
     super();
   }
@@ -38,7 +45,7 @@ export class EmailDeliveryProcessor extends WorkerHost {
     }
 
     try {
-      const { encryptedContent, iv, authTag } = message;
+      const { encryptedContent, iv, authTag, recipientEmail } = message;
 
       const decryptedContent = this.cryptoService.decrypt(
         encryptedContent,
@@ -46,9 +53,8 @@ export class EmailDeliveryProcessor extends WorkerHost {
         authTag
       );
 
-      // Заглушка для вызова внешней отправки (разрабатывается в следующей задаче)
-      this.logger.log(`Dummy email send for message ${messageId}. Decrypted content: "${decryptedContent}"`);
-      // В реальной системе здесь будет вызов почтового сервиса с decryptedContent
+      await this.emailService.sendTransactionalEmail(recipientEmail, decryptedContent);
+      this.logger.log(`Email sent for message ${messageId}.`);
 
       message.status = MessageStatus.SENT;
       await message.save();

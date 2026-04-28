@@ -4,10 +4,12 @@ import { Job } from 'bullmq';
 import { EmailDeliveryProcessor } from './email-delivery.processor';
 import { Message, MessageStatus } from '../database/schemas/message.schema';
 import { CryptoService } from '../crypto/crypto.service';
+import { EmailService } from '../email/email.service';
 
 describe('EmailDeliveryProcessor', () => {
   let processor: EmailDeliveryProcessor;
   let cryptoService: jest.Mocked<CryptoService>;
+  let emailService: jest.Mocked<EmailService>;
   
   const mockMessageModel = {
     findById: jest.fn(),
@@ -15,6 +17,10 @@ describe('EmailDeliveryProcessor', () => {
 
   const mockCryptoService = {
     decrypt: jest.fn(),
+  };
+
+  const mockEmailService = {
+    sendTransactionalEmail: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -29,11 +35,16 @@ describe('EmailDeliveryProcessor', () => {
           provide: CryptoService,
           useValue: mockCryptoService,
         },
+        {
+          provide: EmailService,
+          useValue: mockEmailService,
+        },
       ],
     }).compile();
 
     processor = module.get<EmailDeliveryProcessor>(EmailDeliveryProcessor);
     cryptoService = module.get(CryptoService);
+    emailService = module.get(EmailService);
   });
 
   afterEach(() => {
@@ -62,9 +73,10 @@ describe('EmailDeliveryProcessor', () => {
     expect(mockMessageModel.findById).toHaveBeenCalledWith('message-id');
     // Ensure decrypt is NOT called
     expect(cryptoService.decrypt).not.toHaveBeenCalled();
+    expect(emailService.sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
-  it('should decrypt and process successfully if status is pending', async () => {
+  it('should decrypt, send email and process successfully if status is pending', async () => {
     const mockSave = jest.fn();
     const mockMessage = {
       _id: 'message-id',
@@ -72,11 +84,13 @@ describe('EmailDeliveryProcessor', () => {
       encryptedContent: 'encrypted',
       iv: 'iv',
       authTag: 'authTag',
+      recipientEmail: 'test@example.com',
       save: mockSave,
     };
 
     mockMessageModel.findById.mockResolvedValueOnce(mockMessage);
     mockCryptoService.decrypt.mockReturnValueOnce('decrypted-content');
+    mockEmailService.sendTransactionalEmail.mockResolvedValueOnce(undefined);
 
     const mockJob = {
       id: 'job-id',
@@ -87,6 +101,7 @@ describe('EmailDeliveryProcessor', () => {
 
     expect(mockMessageModel.findById).toHaveBeenCalledWith('message-id');
     expect(cryptoService.decrypt).toHaveBeenCalledWith('encrypted', 'iv', 'authTag');
+    expect(emailService.sendTransactionalEmail).toHaveBeenCalledWith('test@example.com', 'decrypted-content');
     expect(mockMessage.status).toBe(MessageStatus.SENT);
     expect(mockSave).toHaveBeenCalled();
   });
@@ -116,6 +131,37 @@ describe('EmailDeliveryProcessor', () => {
 
     expect(mockMessageModel.findById).toHaveBeenCalledWith('message-id');
     expect(cryptoService.decrypt).toHaveBeenCalledWith('encrypted', 'iv', 'authTag');
+    expect(emailService.sendTransactionalEmail).not.toHaveBeenCalled();
+    expect(mockMessage.status).toBe(MessageStatus.ERROR);
+    expect(mockSave).toHaveBeenCalled();
+  });
+
+  it('should set status to error if email sending fails', async () => {
+    const mockSave = jest.fn();
+    const mockMessage = {
+      _id: 'message-id',
+      status: MessageStatus.PENDING,
+      encryptedContent: 'encrypted',
+      iv: 'iv',
+      authTag: 'authTag',
+      recipientEmail: 'test@example.com',
+      save: mockSave,
+    };
+
+    mockMessageModel.findById.mockResolvedValueOnce(mockMessage);
+    mockCryptoService.decrypt.mockReturnValueOnce('decrypted-content');
+    mockEmailService.sendTransactionalEmail.mockRejectedValueOnce(new Error('Email failed'));
+
+    const mockJob = {
+      id: 'job-id',
+      data: { messageId: 'message-id' },
+    } as unknown as Job;
+
+    await processor.process(mockJob);
+
+    expect(mockMessageModel.findById).toHaveBeenCalledWith('message-id');
+    expect(cryptoService.decrypt).toHaveBeenCalledWith('encrypted', 'iv', 'authTag');
+    expect(emailService.sendTransactionalEmail).toHaveBeenCalledWith('test@example.com', 'decrypted-content');
     expect(mockMessage.status).toBe(MessageStatus.ERROR);
     expect(mockSave).toHaveBeenCalled();
   });

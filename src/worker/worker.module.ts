@@ -1,12 +1,13 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import * as Joi from "joi";
-import { MongoModule } from "./database/mongo.module";
-import { CryptoModule } from "./crypto/crypto.module";
+import { MongoModule } from "../database/mongo.module";
+import { CryptoModule } from "../crypto/crypto.module";
 import { BullModule } from '@nestjs/bullmq';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Message, MessageSchema } from './database/schemas/message.schema';
-import { EmailDeliveryProcessor } from './worker/email-delivery.processor';
+import { Message, MessageSchema } from '../database/schemas/message.schema';
+import { EmailDeliveryProcessor } from './email-delivery.processor';
+import { EmailModule } from '../email/email.module';
 
 @Module({
     imports: [
@@ -24,6 +25,8 @@ import { EmailDeliveryProcessor } from './worker/email-delivery.processor';
                 POSTGRES_PASSWORD: Joi.string().required(),
                 POSTGRES_DB: Joi.string().required(),
                 JWT_SECRET: Joi.string().required(),
+                MAILOPOST_API_TOKEN: Joi.string().required(),
+                MAILOPOST_FROM_EMAIL: Joi.string().optional(),
             }),
         }),
         BullModule.forRootAsync({
@@ -38,6 +41,7 @@ import { EmailDeliveryProcessor } from './worker/email-delivery.processor';
         }),
         MongoModule,
         CryptoModule,
+        EmailModule,
         MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
         BullModule.registerQueue({ name: 'email-delivery-queue' }),
     ],

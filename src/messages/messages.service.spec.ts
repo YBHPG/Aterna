@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { getQueueToken } from '@nestjs/bullmq';
 import { MessagesService } from './messages.service';
@@ -17,9 +18,16 @@ describe('MessagesService', () => {
   };
 
   const mockSave = jest.fn();
+  const mockFind = jest.fn();
+  const mockFindById = jest.fn();
+  
   const mockMessageModel = jest.fn().mockImplementation(() => ({
     save: mockSave,
   }));
+  Object.assign(mockMessageModel, {
+    find: mockFind,
+    findById: mockFindById,
+  });
 
   const mockCryptoService = {
     encrypt: jest.fn(),
@@ -141,10 +149,84 @@ describe('MessagesService', () => {
       expect(mockQueue.add).toHaveBeenCalledWith(
         'send-email',
         { messageId: 'test-message-id' },
-        { delay: expectedDelay }
+        {
+          delay: expectedDelay,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+        }
       );
 
       jest.restoreAllMocks();
+    });
+  });
+
+  describe('findAllByUser', () => {
+    it('должен возвращать массив писем без зашифрованного контента', async () => {
+      const mockExec = jest.fn().mockResolvedValue([{ _id: '1', recipientEmail: 'test@example.com' }]);
+      const mockSelect = jest.fn().mockReturnValue({ exec: mockExec });
+      mockFind.mockReturnValue({ select: mockSelect });
+
+      const result = await service.findAllByUser('user1');
+
+      expect(mockFind).toHaveBeenCalledWith({ userId: 'user1' });
+      expect(mockSelect).toHaveBeenCalledWith('-encryptedContent -iv -authTag');
+      expect(result).toEqual([{ _id: '1', recipientEmail: 'test@example.com' }]);
+    });
+  });
+
+  describe('cancel', () => {
+    it('должен выбросить NotFoundException если письмо не найдено', async () => {
+      const mockExec = jest.fn().mockResolvedValue(null);
+      mockFindById.mockReturnValue({ exec: mockExec });
+
+      await expect(service.cancel('msg1', 'user1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('должен выбросить ForbiddenException при попытке отменить письмо с чужим userId', async () => {
+      const mockDocument = {
+        _id: 'msg1',
+        userId: 'ownerId',
+        status: MessageStatus.PENDING,
+        save: jest.fn(),
+      };
+      const mockExec = jest.fn().mockResolvedValue(mockDocument);
+      mockFindById.mockReturnValue({ exec: mockExec });
+
+      await expect(service.cancel('msg1', 'hackerId')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('должен изменить статус на cancelled если письмо pending', async () => {
+      const mockDocument = {
+        _id: 'msg1',
+        userId: 'ownerId',
+        status: MessageStatus.PENDING,
+        save: jest.fn().mockResolvedValue(true),
+      };
+      const mockExec = jest.fn().mockResolvedValue(mockDocument);
+      mockFindById.mockReturnValue({ exec: mockExec });
+
+      const result = await service.cancel('msg1', 'ownerId');
+
+      expect(mockDocument.status).toBe(MessageStatus.CANCELLED);
+      expect(mockDocument.save).toHaveBeenCalled();
+      expect(result).toEqual(mockDocument);
+    });
+
+    it('не должен менять статус если письмо не pending', async () => {
+      const mockDocument = {
+        _id: 'msg1',
+        userId: 'ownerId',
+        status: MessageStatus.SENT,
+        save: jest.fn().mockResolvedValue(true),
+      };
+      const mockExec = jest.fn().mockResolvedValue(mockDocument);
+      mockFindById.mockReturnValue({ exec: mockExec });
+
+      const result = await service.cancel('msg1', 'ownerId');
+
+      expect(mockDocument.status).toBe(MessageStatus.SENT); // remained SENT
+      expect(mockDocument.save).not.toHaveBeenCalled();
+      expect(result).toEqual(mockDocument);
     });
   });
 });

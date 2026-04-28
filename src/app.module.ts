@@ -1,14 +1,14 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import * as Joi from "joi";
-import { PostgresModule } from "./src/database/postgres.module";
-import { MongoModule } from "./src/database/mongo.module";
-import { UsersModule } from "./src/users/users.module";
-import { AuthModule } from "./src/auth/auth.module";
-import { CryptoModule } from "./src/crypto/crypto.module";
-import { MessagesModule } from "./src/messages/messages.module";
+import { PostgresModule } from "./database/postgres.module";
+import { MongoModule } from "./database/mongo.module";
+import { UsersModule } from "./users/users.module";
+import { AuthModule } from "./auth/auth.module";
+import { CryptoModule } from "./crypto/crypto.module";
+import { MessagesModule } from "./messages/messages.module";
 import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from './src/auth/jwt-auth.guard';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { BullModule } from '@nestjs/bullmq';
 
 @Module({
