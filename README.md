@@ -2,7 +2,7 @@
 
 ## Описание
 
-Бэкенд-часть веб-приложения Aterna. Проект построен на базе современной Node.js архитектуры с использованием фреймворка NestJS, обеспечивающего модульность, масштабируемость и строгую типизацию.
+Веб-приложение Aterna для создания криптографически защищенных отложенных писем в будущее. Бэкенд построен на базе современной Node.js архитектуры с использованием фреймворка NestJS, а клиентская часть (Frontend) реализована на React.
 
 ## Используемый технологический стек
 
@@ -16,7 +16,21 @@
 - **Безопасность и криптография:** `bcrypt` (хэширование паролей), Node.js `crypto` (AES-256-GCM)
 - **Аутентификация:** JWT (Passport.js, `@nestjs/jwt`)
 - **Валидация:** `joi` (env-переменные), `class-validator` (тела запросов)
+- **Frontend:** React, React Router, `react-hook-form` (валидация), Axios (HTTP-клиент)
 - **Тестирование:** Jest
+
+### 10. Разработка клиентской части (Frontend SPA) - MVP
+
+Реализовано Single Page Application на базе React и Vite:
+
+- **Архитектура и Маршрутизация:** Настроен `react-router-dom` с разделением на публичные (`/login`, `/register`) и защищенные маршруты (`/dashboard`, `/create`). Для HTTP-запросов сконфигурирован глобальный инстанс `axios` с перехватчиком (interceptor) для автоматической инъекции JWT-токена.
+- **Аутентификация и состояние:** Создан глобальный `AuthContext` для управления состоянием сессии пользователя. Реализованы формы регистрации (`Register.tsx`) и авторизации (`Login.tsx`) с валидацией через `react-hook-form`. Настроен компонент `ProtectedRoute` для автоматического перенаправления неавторизованных пользователей на страницу входа.
+- **Интерфейс создания сообщения (`CreateMessage.tsx`):** Маршрут `/create`.
+    - Включает защищенное текстовое поле, email получателя и выбор даты (datetime-local).
+    - **Валидация:** Настроена строгая валидация email и проверка даты на стороне клиента (отправка возможна минимум через 1 час от текущего времени).
+    - **Безопасность:** Предотвращено кэширование и автозаполнение конфиденциального текста браузером (`autoComplete="off"`, `autoCorrect="off"`, `spellCheck="false"`). Настроена обязательная очистка состояния формы при размонтировании (unmount).
+    - **Интеграция с API:** Отправка JSON POST-запросом через настроенный API-клиент с приведением локального времени к UTC (ISO 8601).
+    - **UX:** После получения ответа HTTP 201 форма очищается, выводится визуальное уведомление об успехе и выполняется редирект на `/dashboard`.
 
 ---
 
@@ -53,27 +67,30 @@
 
 **Публичные эндпоинты:**
 
-| Метод | Путь | Описание |
-|-------|------|----------|
+| Метод  | Путь             | Описание                                            |
+| ------ | ---------------- | --------------------------------------------------- |
 | `POST` | `/auth/register` | Регистрация пользователя, возвращает `access_token` |
-| `POST` | `/auth/login` | Логин, возвращает `access_token` |
+| `POST` | `/auth/login`    | Логин, возвращает `access_token`                    |
 
 **Тело запросов:**
+
 ```json
 {
-  "email": "user@example.com",
-  "password": "minimum6chars"
+    "email": "user@example.com",
+    "password": "minimum6chars"
 }
 ```
 
 **Ответ:**
+
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
 Защищённые роуты требуют заголовка:
+
 ```
 Authorization: Bearer <access_token>
 ```
@@ -119,15 +136,17 @@ Authorization: Bearer <access_token>
 - **Тестирование:** Unit-тесты (`messages.service.spec.ts`) проверяют интеграцию с `CryptoService`, правильное формирование модели документа и логику "несохранения" открытого текста.
 
 **Тело запроса `POST /messages`:**
+
 ```json
 {
-  "content": "Секретное послание в будущее для самого себя.",
-  "recipientEmail": "my-email@example.com",
-  "triggerDate": "2030-05-01T12:00:00.000Z"
+    "content": "Секретное послание в будущее для самого себя.",
+    "recipientEmail": "my-email@example.com",
+    "triggerDate": "2030-05-01T12:00:00.000Z"
 }
 ```
 
 **Ответ:**
+
 ```json
 {
     "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
@@ -178,6 +197,7 @@ Authorization: Bearer <access_token>
 ### 9. Интеграция провайдера MailoPost и Rate Limiting
 
 Для фактической отправки писем подключен транзакционный провайдер MailoPost, а также настроена устойчивость воркера:
+
 - **`EmailModule`:** Новый модуль с интеграцией MailoPost Transactional API для отправки сформированного письма пользователю.
 - **Отказоустойчивость (Exponential Backoff):** При создании задачи в очередь передаются параметры `attempts: 3` и `backoff: exponential`, чтобы воркер умножал задержку при переповторе в случае недоступности внешнего API.
 - **Rate Limiting:** Настроен BullMQ Token Bucket лимитер для соблюдения квот почтового провайдера.
@@ -252,13 +272,15 @@ npm run test
 
 ## Статус реализации
 
-| Модуль | Статус |
-|--------|--------|
-| Инфраструктура (Docker Compose) | Ready |
-| UsersModule | Ready |
-| AuthModule (JWT) | Ready |
-| CryptoModule (AES-256-GCM) | Ready |
-| MessagesModule (Schema & Create API) | Ready |
-| MessagesModule (Read/Cancel API) | Ready |
-| Queue Worker (delayed delivery) | Ready |
-
+| Модуль                                 | Статус |
+| -------------------------------------- | ------ |
+| Инфраструктура (Docker Compose)        | Ready  |
+| UsersModule                            | Ready  |
+| AuthModule (JWT)                       | Ready  |
+| CryptoModule (AES-256-GCM)             | Ready  |
+| MessagesModule (Schema & Create API)   | Ready  |
+| MessagesModule (Read/Cancel API)       | Ready  |
+| Queue Worker (delayed delivery)        | Ready  |
+| Frontend: Инициализация и роутинг      | Ready  |
+| Frontend: Аутентификация и AuthContext | Ready  |
+| Frontend: Создание сообщения (/create) | Ready  |
