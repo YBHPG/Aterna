@@ -3,6 +3,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { useAuth } from './context/AuthContext';
+import { CreateMessage } from './components/CreateMessage';
+
 
 function Home() {
   return <div>Home Page</div>;
@@ -20,10 +22,6 @@ function Dashboard() {
   );
 }
 
-function Create() {
-  return <div>Create Page</div>;
-}
-
 function App() {
   return (
     <BrowserRouter>
@@ -35,7 +33,7 @@ function App() {
           <ProtectedRoute><Dashboard /></ProtectedRoute>
         } />
         <Route path="/create" element={
-          <ProtectedRoute><Create /></ProtectedRoute>
+          <ProtectedRoute><CreateMessage /></ProtectedRoute>
         } />
       </Routes>
     </BrowserRouter>

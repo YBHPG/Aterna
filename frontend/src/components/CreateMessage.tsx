@@ -58,12 +58,12 @@ export const CreateMessage: React.FC = () => {
   };
 
   return (
-    <div className="create-message-container">
-      <h2>Письмо в будущее</h2>
+    <div className="max-w-2xl px-4 py-8 mx-auto">
+      <h2 className="mb-6 text-3xl font-bold text-gray-800">Письмо в будущее</h2>
       {/* Отключаем автозаполнение на уровне формы */}
-      <form onSubmit={handleSubmit(onSubmit)} autoComplete="off">
-        <div className="form-group">
-          <label htmlFor="content">Текст сообщения:</label>
+      <form onSubmit={handleSubmit(onSubmit)} autoComplete="off" className="space-y-6">
+        <div>
+          <label htmlFor="content" className="block mb-2 text-sm font-medium text-gray-700">Текст сообщения:</label>
           <textarea
             id="content"
             {...register('content', { required: 'Введите текст сообщения' })}
@@ -71,12 +71,13 @@ export const CreateMessage: React.FC = () => {
             autoComplete="off"
             autoCorrect="off"
             spellCheck="false"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
-          {errors.content && <span className="error-message">{errors.content.message}</span>}
+          {errors.content && <span className="text-sm text-red-500">{errors.content.message}</span>}
         </div>
 
-        <div className="form-group">
-          <label htmlFor="recipientEmail">Email получателя:</label>
+        <div>
+          <label htmlFor="recipientEmail" className="block mb-2 text-sm font-medium text-gray-700">Email получателя:</label>
           <input
             type="email"
             id="recipientEmail"
@@ -87,12 +88,13 @@ export const CreateMessage: React.FC = () => {
                 message: 'Введите корректный email',
               },
             })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
-          {errors.recipientEmail && <span className="error-message">{errors.recipientEmail.message}</span>}
+          {errors.recipientEmail && <span className="text-sm text-red-500">{errors.recipientEmail.message}</span>}
         </div>
 
-        <div className="form-group">
-          <label htmlFor="triggerDate">Дата и время отправки:</label>
+        <div>
+          <label htmlFor="triggerDate" className="block mb-2 text-sm font-medium text-gray-700">Дата и время отправки:</label>
           <input
             type="datetime-local"
             id="triggerDate"
@@ -100,11 +102,17 @@ export const CreateMessage: React.FC = () => {
               required: 'Укажите дату и время отправки',
               validate: validateFutureDate,
             })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
-          {errors.triggerDate && <span className="error-message">{errors.triggerDate.message}</span>}
+          {errors.triggerDate && <span className="text-sm text-red-500">{errors.triggerDate.message}</span>}
         </div>
 
-        <button type="submit">Отправить в будущее</button>
+        <button 
+          type="submit"
+          className="w-full px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+        >
+          Отправить в будущее
+        </button>
       </form>
     </div>
   );
