@@ -3,6 +3,10 @@
 
 # Зависимости
 /node_modules
+backend/dist
+frontend/dist
+backend/node_modules
+frontend/node_modules
 
 # Логи
 logs
@@ -34,3 +38,4 @@ package-lock.json
 .vscode/*
 !.vscode/settings.json
 .idea
+.vscode
