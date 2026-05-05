@@ -17,7 +17,17 @@ export class UsersService {
         });
     }
 
-    public async create(emailAddress: string, passwordPlain: string): Promise<User> {
+    public async findById(id: string): Promise<User | null> {
+        return this.usersRepo.findOne({
+            where: { id },
+        });
+    }
+
+    public async create(
+        emailAddress: string,
+        passwordPlain: string,
+        firstName?: string,
+    ): Promise<User> {
         const email = emailAddress.toLowerCase();
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(passwordPlain, saltRounds);
@@ -25,6 +35,7 @@ export class UsersService {
         const newUser = this.usersRepo.create({
             email,
             passwordHash,
+            firstName,
         });
 
         return this.usersRepo.save(newUser);

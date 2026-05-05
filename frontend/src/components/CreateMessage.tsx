@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import axios from 'axios'; // Если у вас есть глобально настроенный API инстанс, импортируйте его (например, import api from '../api')
+import api from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 
 interface CreateMessageForm {
@@ -28,15 +28,8 @@ export const CreateMessage: React.FC = () => {
         triggerDate: new Date(data.triggerDate).toISOString(),
       };
 
-      // Вызов POST /messages к бэкенду
-      // Примечание: Убедитесь, что префикс /api нужен. Если в NestJS нет app.setGlobalPrefix('api'), путь будет просто /messages
-      const token = localStorage.getItem('access_token'); // Берем токен из хранилища
-      
-      const response = await axios.post('http://localhost:3000/messages', payload, {
-        headers: {
-          Authorization: `Bearer ${token}`, // Передаем токен согласно требованиям бэкенда
-        },
-      });
+      // Вызов POST /messages через глобальный инстанс API (интерцептор сам подставит токен)
+      const response = await api.post('/messages', payload);
 
       if (response.status === 201) {
         // MVP-уведомление (замените на нужную библиотеку Toast при необходимости)

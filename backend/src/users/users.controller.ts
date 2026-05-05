@@ -7,7 +7,7 @@ export class UsersController {
 
     @Post()
     public async register(@Body() body: any) {
-        // Передаем email и пароль из тела запроса в наш сервис
-        return this.usersService.create(body.email, body.password);
+        // Передаем email, пароль и имя из тела запроса в наш сервис
+        return this.usersService.create(body.email, body.password, body.firstName);
     }
 }

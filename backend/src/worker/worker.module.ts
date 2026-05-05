@@ -3,11 +3,13 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import * as Joi from "joi";
 import { MongoModule } from "../database/mongo.module";
 import { CryptoModule } from "../crypto/crypto.module";
-import { BullModule } from '@nestjs/bullmq';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Message, MessageSchema } from '../database/schemas/message.schema';
-import { EmailDeliveryProcessor } from './email-delivery.processor';
-import { EmailModule } from '../email/email.module';
+import { BullModule } from "@nestjs/bullmq";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Message, MessageSchema } from "../database/schemas/message.schema";
+import { EmailDeliveryProcessor } from "./email-delivery.processor";
+import { EmailModule } from "../email/email.module";
+import { UsersModule } from "../users/users.module";
+import { TypeOrmModule } from "@nestjs/typeorm";
 
 @Module({
     imports: [
@@ -29,12 +31,21 @@ import { EmailModule } from '../email/email.module';
                 MAILOPOST_FROM_EMAIL: Joi.string().optional(),
             }),
         }),
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: async (configService: ConfigService) => ({
+                type: "postgres",
+                url: configService.get<string>("POSTGRES_URI"),
+                autoLoadEntities: true,
+            }),
+        }),
         BullModule.forRootAsync({
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => ({
                 connection: {
-                    host: configService.get<string>('REDIS_HOST'),
-                    port: configService.get<number>('REDIS_PORT'),
+                    host: configService.get<string>("REDIS_HOST"),
+                    port: configService.get<number>("REDIS_PORT"),
                 },
             }),
             inject: [ConfigService],
@@ -42,8 +53,9 @@ import { EmailModule } from '../email/email.module';
         MongoModule,
         CryptoModule,
         EmailModule,
+        UsersModule,
         MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
-        BullModule.registerQueue({ name: 'email-delivery-queue' }),
+        BullModule.registerQueue({ name: "email-delivery-queue" }),
     ],
     providers: [EmailDeliveryProcessor],
 })

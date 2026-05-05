@@ -8,9 +8,9 @@ async function bootstrap() {
     // Устанавливаем глобальный префикс /api (чтобы адрес совпадал с настройками фронтенда)
     app.setGlobalPrefix("api");
 
-    // Включаем CORS и разрешаем запросы с фронтенда на порту 3001
+    // Включаем CORS и разрешаем запросы с фронтенда (стандартные порты Vite и React)
     app.enableCors({
-        origin: "http://localhost:3001",
+        origin: ["http://localhost:3001", "http://localhost:5173"],
         credentials: true,
     });
 

@@ -34,7 +34,7 @@ describe("UsersService", () => {
         service = module.get<UsersService>(UsersService);
     });
 
-    it("должен создавать пользователя с нормализованным email и хешированным паролем", async () => {
+    it("должен создавать пользователя с нормализованным email и хэшированным паролем", async () => {
         const hashSpy = jest
             .spyOn(bcrypt, "hash")
             .mockImplementation(() => Promise.resolve("hashed_password") as any);
@@ -45,9 +45,22 @@ describe("UsersService", () => {
         expect(repository.create).toHaveBeenCalledWith({
             email: "test@example.com",
             passwordHash: "hashed_password",
+            firstName: undefined,
         });
         expect(repository.save).toHaveBeenCalled();
         expect(result.email).toEqual("test@example.com");
         expect(result.passwordHash).toEqual("hashed_password");
+    });
+
+    it("должен находить пользователя по id", async () => {
+        const mockUser = { id: "mock-uuid-1234", email: "test@example.com" };
+        repository.findOne.mockResolvedValue(mockUser);
+
+        const result = await service.findById("mock-uuid-1234");
+
+        expect(repository.findOne).toHaveBeenCalledWith({
+            where: { id: "mock-uuid-1234" },
+        });
+        expect(result).toEqual(mockUser);
     });
 });
