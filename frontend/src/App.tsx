@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { CreateMessage } from "./components/CreateMessage";
 import { Dashboard } from "./components/Dashboard";
+import ViewMessage from "./pages/ViewMessage";
 
 function Home() {
     return <div>Home Page</div>;
@@ -29,6 +30,14 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <CreateMessage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/messages/:id"
+                    element={
+                        <ProtectedRoute>
+                            <ViewMessage />
                         </ProtectedRoute>
                     }
                 />
