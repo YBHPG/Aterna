@@ -3,6 +3,7 @@ import { AuthService } from "./auth.service";
 import { UsersService } from "../users/users.service";
 import { AuthDto } from "./dto/auth.dto";
 import { Public } from "./decorators/public.decorator";
+import { TelegramAuthDto } from "./dto/telegram-auth.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -29,5 +30,11 @@ export class AuthController {
     async login(@Body() authDto: AuthDto) {
         const user = await this.authService.validateUser(authDto.email, authDto.password);
         return this.authService.login(user);
+    }
+
+    @Public()
+    @Post("telegram")
+    async loginWithTelegram(@Body() dto: TelegramAuthDto) {
+        return this.authService.loginWithTelegram(dto);
     }
 }

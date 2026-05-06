@@ -1,13 +1,19 @@
 import { Controller, Post, Body } from "@nestjs/common";
 import { UsersService } from "./users.service";
+import { CreateUserDto } from "./create-user.dto";
 
 @Controller("users")
 export class UsersController {
     constructor(private readonly usersService: UsersService) {}
 
     @Post()
-    public async register(@Body() body: any) {
-        // Передаем email, пароль и имя из тела запроса в наш сервис
-        return this.usersService.create(body.email, body.password, body.firstName);
+    public async register(@Body() dto: CreateUserDto) {
+        return this.usersService.create(
+            dto.email,
+            dto.password,
+            dto.firstName,
+            dto.telegramId,
+            dto.vkId,
+        );
     }
 }

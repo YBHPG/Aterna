@@ -17,8 +17,14 @@ export class User {
     @Column({ nullable: true })
     firstName: string;
 
-    @Column({ name: "password_hash" })
-    passwordHash!: string;
+    @Column({ name: "password_hash", nullable: true })
+    passwordHash?: string;
+
+    @Column({ nullable: true, unique: true })
+    telegramId?: string;
+
+    @Column({ nullable: true, unique: true })
+    vkId?: string;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date;

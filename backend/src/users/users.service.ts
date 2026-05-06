@@ -23,19 +23,39 @@ export class UsersService {
         });
     }
 
+    public async findByTelegramId(telegramId: string): Promise<User | null> {
+        return this.usersRepo.findOne({
+            where: { telegramId },
+        });
+    }
+
+    public async findByVkId(vkId: string): Promise<User | null> {
+        return this.usersRepo.findOne({
+            where: { vkId },
+        });
+    }
+
     public async create(
         emailAddress: string,
-        passwordPlain: string,
+        passwordPlain?: string,
         firstName?: string,
+        telegramId?: string,
+        vkId?: string,
     ): Promise<User> {
         const email = emailAddress.toLowerCase();
-        const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(passwordPlain, saltRounds);
+
+        let passwordHash;
+        if (passwordPlain) {
+            const saltRounds = 10;
+            passwordHash = await bcrypt.hash(passwordPlain, saltRounds);
+        }
 
         const newUser = this.usersRepo.create({
             email,
             passwordHash,
             firstName,
+            telegramId,
+            vkId,
         });
 
         return this.usersRepo.save(newUser);

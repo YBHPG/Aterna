@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
+import { TelegramLoginButton, TelegramUser } from "../components/TelegramLoginButton";
 
 interface RegisterFormInputs {
     email: string;
@@ -39,6 +40,21 @@ const Register: React.FC = () => {
         } catch (error) {
             console.error("Ошибка при регистрации:", error);
             alert("Не удалось зарегистрироваться. Проверьте данные и попробуйте снова.");
+        }
+    };
+
+    const handleTelegramAuth = async (user: TelegramUser) => {
+        try {
+            const response = await api.post("/auth/telegram", user);
+            const token =
+                response.data.token || response.data.access_token || response.data.accessToken;
+            if (token) {
+                login(token); // сразу авторизуем после успешной регистрации
+                navigate("/dashboard");
+            }
+        } catch (error) {
+            console.error("Ошибка при входе через Telegram:", error);
+            alert("Не удалось авторизоваться через Telegram. Попробуйте снова.");
         }
     };
 
@@ -111,6 +127,15 @@ const Register: React.FC = () => {
                         Зарегистрироваться
                     </button>
                 </form>
+                <div className="mt-6 flex flex-col items-center">
+                    <p className="mb-4 text-sm text-gray-600">
+                        Или зарегистрируйтесь через соцсети:
+                    </p>
+                    <TelegramLoginButton
+                        botName={import.meta.env.VITE_TELEGRAM_BOT_NAME || "Aterna_bot"}
+                        onAuth={handleTelegramAuth}
+                    />
+                </div>
                 <p className="mt-4 text-sm text-center text-gray-600">
                     Уже есть аккаунт?{" "}
                     <Link to="/login" className="text-blue-500 hover:underline">

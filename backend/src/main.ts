@@ -10,7 +10,7 @@ async function bootstrap() {
 
     // Включаем CORS и разрешаем запросы с фронтенда (стандартные порты Vite и React)
     app.enableCors({
-        origin: ["http://localhost:3001", "http://localhost:5173"],
+        origin: ["http://localhost:3001", "http://localhost:5173", "http://127.0.0.1"],
         credentials: true,
     });
 
