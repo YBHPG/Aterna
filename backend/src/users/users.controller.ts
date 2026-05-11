@@ -8,12 +8,6 @@ export class UsersController {
 
     @Post()
     public async register(@Body() dto: CreateUserDto) {
-        return this.usersService.create(
-            dto.email,
-            dto.password,
-            dto.firstName,
-            dto.telegramId,
-            dto.vkId,
-        );
+        return this.usersService.create(dto.email, dto.password, dto.firstName, dto.telegramId);
     }
 }

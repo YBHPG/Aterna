@@ -1,6 +1,7 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, UnauthorizedException, BadRequestException } from "@nestjs/common";
 import { UsersService } from "../users/users.service";
 import { JwtService } from "@nestjs/jwt";
+import { EmailService } from "../email/email.service";
 import * as bcrypt from "bcrypt";
 import * as crypto from "crypto";
 import { TelegramAuthDto } from "./dto/telegram-auth.dto";
@@ -10,7 +11,26 @@ export class AuthService {
     constructor(
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
+        private readonly emailService: EmailService,
     ) {}
+
+    async register(email: string, passwordPlain?: string, firstName?: string) {
+        const user = await this.usersService.create(email, passwordPlain, firstName);
+
+        if (user.emailConfirmationToken) {
+            await this.emailService.sendConfirmationEmail(user.email, user.emailConfirmationToken);
+        }
+
+        return this.login(user);
+    }
+
+    async confirmEmail(token: string): Promise<void> {
+        const user = await this.usersService.findByEmailConfirmationToken(token);
+        if (!user) {
+            throw new BadRequestException("Неверный или просроченный токен подтверждения");
+        }
+        await this.usersService.confirmEmail(user);
+    }
 
     async validateUser(email: string, pass: string): Promise<any> {
         const user = await this.usersService.findByEmail(email);
@@ -78,7 +98,6 @@ export class AuthService {
                 undefined,
                 data.first_name,
                 data.id.toString(),
-                undefined,
             );
         }
 

@@ -6,11 +6,13 @@ import { Message, MessageStatus } from "../database/schemas/message.schema";
 import { CryptoService } from "../crypto/crypto.service";
 import { EmailService } from "../email/email.service";
 import { UsersService } from "../users/users.service";
+import { TelegramService } from "../auth/telegram.service";
 
 describe("EmailDeliveryProcessor", () => {
     let processor: EmailDeliveryProcessor;
     let cryptoService: jest.Mocked<CryptoService>;
     let emailService: jest.Mocked<EmailService>;
+    let telegramService: jest.Mocked<TelegramService>;
 
     const mockMessageModel = {
         findById: jest.fn(),
@@ -27,6 +29,10 @@ describe("EmailDeliveryProcessor", () => {
 
     const mockUsersService = {
         findById: jest.fn(),
+    };
+
+    const mockTelegramService = {
+        sendNotification: jest.fn(),
     };
 
     beforeEach(async () => {
@@ -49,12 +55,17 @@ describe("EmailDeliveryProcessor", () => {
                     provide: UsersService,
                     useValue: mockUsersService,
                 },
+                {
+                    provide: TelegramService,
+                    useValue: mockTelegramService,
+                },
             ],
         }).compile();
 
         processor = module.get<EmailDeliveryProcessor>(EmailDeliveryProcessor);
         cryptoService = module.get(CryptoService);
         emailService = module.get(EmailService);
+        telegramService = module.get(TelegramService);
     });
 
     afterEach(() => {
@@ -101,7 +112,11 @@ describe("EmailDeliveryProcessor", () => {
         };
 
         mockMessageModel.findById.mockResolvedValueOnce(mockMessage);
-        mockUsersService.findById.mockResolvedValueOnce({ id: "user-id", firstName: "John" });
+        mockUsersService.findById.mockResolvedValueOnce({
+            id: "user-id",
+            firstName: "John",
+            telegramId: "tg-123",
+        });
         mockCryptoService.decrypt.mockReturnValueOnce("decrypted-content");
         mockEmailService.sendNotificationEmail.mockResolvedValueOnce(undefined);
 
@@ -121,6 +136,10 @@ describe("EmailDeliveryProcessor", () => {
             mockMessage.createdAt,
             "decrypted-content",
             `${process.env.FRONTEND_URL}/messages/message-id`,
+        );
+        expect(telegramService.sendNotification).toHaveBeenCalledWith(
+            "tg-123",
+            `У вас новое письмо из прошлого! Прочитать: ${process.env.FRONTEND_URL}/messages/message-id\nДашборд: ${process.env.FRONTEND_URL}/dashboard`,
         );
         expect(mockMessage.status).toBe(MessageStatus.SENT);
         expect(mockSave).toHaveBeenCalled();

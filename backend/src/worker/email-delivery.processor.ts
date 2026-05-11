@@ -7,6 +7,7 @@ import { CryptoService } from "../crypto/crypto.service";
 import { Logger } from "@nestjs/common";
 import { EmailService } from "../email/email.service";
 import { UsersService } from "../users/users.service";
+import { TelegramService } from "../auth/telegram.service";
 
 @Processor("email-delivery-queue", {
     limiter: {
@@ -22,6 +23,7 @@ export class EmailDeliveryProcessor extends WorkerHost {
         private readonly cryptoService: CryptoService,
         private readonly emailService: EmailService,
         private readonly usersService: UsersService,
+        private readonly telegramService: TelegramService,
     ) {
         super();
     }
@@ -47,11 +49,11 @@ export class EmailDeliveryProcessor extends WorkerHost {
         }
 
         try {
-            const { encryptedContent, iv, authTag, recipientEmail, userId } = message;
+            let { encryptedContent, iv, authTag, recipientEmail, userId } = message;
 
             const user = await this.usersService.findById(userId);
 
-            const decryptedContent = this.cryptoService.decrypt(encryptedContent, iv, authTag);
+            let decryptedContent = this.cryptoService.decrypt(encryptedContent, iv, authTag);
 
             const preview =
                 decryptedContent.length > 100
@@ -59,15 +61,35 @@ export class EmailDeliveryProcessor extends WorkerHost {
                     : decryptedContent;
 
             const link = `${process.env.FRONTEND_URL}/messages/${messageId}`;
+            const dashboardUrl = `${process.env.FRONTEND_URL}/dashboard`;
 
-            await this.emailService.sendNotificationEmail(
-                recipientEmail,
-                user?.firstName,
-                (message as any).createdAt,
-                preview,
-                link,
-            );
-            this.logger.log(`Email sent for message ${messageId}.`);
+            if (recipientEmail) {
+                if (user && user.isEmailConfirmed === false) {
+                    this.logger.warn(
+                        `User ${userId} has unconfirmed email. Skipping email delivery.`,
+                    );
+                } else {
+                    await this.emailService.sendNotificationEmail(
+                        recipientEmail,
+                        user?.firstName,
+                        (message as any).createdAt,
+                        preview,
+                        link,
+                    );
+                    this.logger.log(`Email sent for message ${messageId}.`);
+                }
+            }
+
+            if (user?.telegramId) {
+                await this.telegramService.sendNotification(
+                    user.telegramId,
+                    `У вас новое письмо из прошлого! Прочитать: ${link}\nДашборд: ${dashboardUrl}`,
+                );
+                this.logger.log(`Telegram notification sent for message ${messageId}.`);
+            }
+
+            // Уничтожение расшифрованного текста из памяти сразу после рассылки (безопасность)
+            decryptedContent = "";
 
             message.status = MessageStatus.SENT;
             await message.save();

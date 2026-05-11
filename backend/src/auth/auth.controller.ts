@@ -1,4 +1,13 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
+import {
+    Controller,
+    Post,
+    Body,
+    HttpCode,
+    HttpStatus,
+    Get,
+    Query,
+    BadRequestException,
+} from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { UsersService } from "../users/users.service";
 import { AuthDto } from "./dto/auth.dto";
@@ -15,13 +24,17 @@ export class AuthController {
     @Public()
     @Post("register")
     async register(@Body() authDto: AuthDto) {
-        const user = await this.usersService.create(
-            authDto.email,
-            authDto.password,
-            authDto.firstName,
-        );
-        // Сразу авторизуем пользователя после регистрации
-        return this.authService.login(user);
+        return this.authService.register(authDto.email, authDto.password, authDto.firstName);
+    }
+
+    @Public()
+    @Get("confirm")
+    async confirmEmail(@Query("token") token: string) {
+        if (!token) {
+            throw new BadRequestException("Требуется токен подтверждения");
+        }
+        await this.authService.confirmEmail(token);
+        return { message: "Email успешно подтвержден" };
     }
 
     @Public()

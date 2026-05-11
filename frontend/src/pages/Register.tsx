@@ -131,10 +131,14 @@ const Register: React.FC = () => {
                     <p className="mb-4 text-sm text-gray-600">
                         Или зарегистрируйтесь через соцсети:
                     </p>
-                    <TelegramLoginButton
-                        botName={import.meta.env.VITE_TELEGRAM_BOT_NAME || "Aterna_bot"}
-                        onAuth={handleTelegramAuth}
-                    />
+                    <div className="flex flex-col space-y-3 w-full">
+                        <div className="flex justify-center">
+                            <TelegramLoginButton
+                                botName={import.meta.env.VITE_TELEGRAM_BOT_NAME || "Aterna_bot"}
+                                onAuth={handleTelegramAuth}
+                            />
+                        </div>
+                    </div>
                 </div>
                 <p className="mt-4 text-sm text-center text-gray-600">
                     Уже есть аккаунт?{" "}

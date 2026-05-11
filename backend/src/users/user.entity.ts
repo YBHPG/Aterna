@@ -14,6 +14,12 @@ export class User {
     @Column({ unique: true })
     email!: string;
 
+    @Column({ default: false })
+    isEmailConfirmed: boolean;
+
+    @Column({ nullable: true })
+    emailConfirmationToken: string;
+
     @Column({ nullable: true })
     firstName: string;
 
@@ -22,9 +28,6 @@ export class User {
 
     @Column({ nullable: true, unique: true })
     telegramId?: string;
-
-    @Column({ nullable: true, unique: true })
-    vkId?: string;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date;

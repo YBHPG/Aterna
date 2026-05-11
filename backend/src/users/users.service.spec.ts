@@ -47,7 +47,8 @@ describe("UsersService", () => {
             passwordHash: "hashed_password",
             firstName: undefined,
             telegramId: undefined,
-            vkId: undefined,
+            emailConfirmationToken: expect.any(String),
+            isEmailConfirmed: false,
         });
         expect(repository.save).toHaveBeenCalled();
         expect(result.email).toEqual("test@example.com");

@@ -102,10 +102,14 @@ const Login: React.FC = () => {
                 </form>
                 <div className="mt-6 flex flex-col items-center">
                     <p className="mb-4 text-sm text-gray-600">Или войдите через соцсети:</p>
-                    <TelegramLoginButton
-                        botName={import.meta.env.VITE_TELEGRAM_BOT_NAME}
-                        onAuth={handleTelegramAuth}
-                    />
+                    <div className="flex flex-col space-y-3 w-full">
+                        <div className="flex justify-center">
+                            <TelegramLoginButton
+                                botName={import.meta.env.VITE_TELEGRAM_BOT_NAME}
+                                onAuth={handleTelegramAuth}
+                            />
+                        </div>
+                    </div>
                 </div>
                 <p className="mt-4 text-sm text-center text-gray-600">
                     Нет аккаунта?{" "}

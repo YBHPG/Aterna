@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
+import * as crypto from "crypto";
 import { User } from "./user.entity";
 
 @Injectable()
@@ -29,10 +30,16 @@ export class UsersService {
         });
     }
 
-    public async findByVkId(vkId: string): Promise<User | null> {
+    public async findByEmailConfirmationToken(token: string): Promise<User | null> {
         return this.usersRepo.findOne({
-            where: { vkId },
+            where: { emailConfirmationToken: token },
         });
+    }
+
+    public async confirmEmail(user: User): Promise<User> {
+        user.isEmailConfirmed = true;
+        user.emailConfirmationToken = null as any;
+        return this.usersRepo.save(user);
     }
 
     public async create(
@@ -40,7 +47,6 @@ export class UsersService {
         passwordPlain?: string,
         firstName?: string,
         telegramId?: string,
-        vkId?: string,
     ): Promise<User> {
         const email = emailAddress.toLowerCase();
 
@@ -50,12 +56,15 @@ export class UsersService {
             passwordHash = await bcrypt.hash(passwordPlain, saltRounds);
         }
 
+        const emailConfirmationToken = crypto.randomBytes(32).toString("hex");
+
         const newUser = this.usersRepo.create({
             email,
             passwordHash,
             firstName,
             telegramId,
-            vkId,
+            emailConfirmationToken,
+            isEmailConfirmed: false,
         });
 
         return this.usersRepo.save(newUser);

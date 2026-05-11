@@ -9,6 +9,7 @@ import { Message, MessageSchema } from "../database/schemas/message.schema";
 import { EmailDeliveryProcessor } from "./email-delivery.processor";
 import { EmailModule } from "../email/email.module";
 import { UsersModule } from "../users/users.module";
+import { TelegramModule } from "../auth/telegram.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 @Module({
@@ -54,6 +55,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
         CryptoModule,
         EmailModule,
         UsersModule,
+        TelegramModule,
         MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
         BullModule.registerQueue({ name: "email-delivery-queue" }),
     ],
