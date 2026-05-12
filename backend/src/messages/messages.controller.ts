@@ -14,6 +14,7 @@ import { Request } from "express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { MessagesService } from "./messages.service";
 import { CreateMessageDto } from "./dto/create-message.dto";
+import { UpdateMessageDto } from "./dto/update-message.dto";
 
 @UseGuards(JwtAuthGuard)
 @Controller("messages")
@@ -25,8 +26,8 @@ export class MessagesController {
     @Post()
     @HttpCode(HttpStatus.CREATED)
     create(@Req() req: Request, @Body() createMessageDto: CreateMessageDto) {
-        const userId = (req.user as { userId: string }).userId;
-        return this.messagesService.create(userId, createMessageDto);
+        const user = req.user as { userId: string; email: string };
+        return this.messagesService.create(user.userId, user.email, createMessageDto);
     }
 
     @Get()
@@ -39,6 +40,16 @@ export class MessagesController {
     getMessage(@Param("id") id: string, @Req() req: Request) {
         const userId = (req.user as { userId: string }).userId;
         return this.messagesService.findByIdAndDecrypt(id, userId);
+    }
+
+    @Patch(":id")
+    update(
+        @Param("id") id: string,
+        @Req() req: Request,
+        @Body() updateMessageDto: UpdateMessageDto,
+    ) {
+        const userId = (req.user as { userId: string }).userId;
+        return this.messagesService.update(id, userId, updateMessageDto);
     }
 
     @Patch(":id/cancel")

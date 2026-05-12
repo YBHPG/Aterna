@@ -6,6 +6,7 @@ import { MessagesService } from "./messages.service";
 import { CryptoService } from "../crypto/crypto.service";
 import { Message, MessageStatus } from "../database/schemas/message.schema";
 import { CreateMessageDto } from "./dto/create-message.dto";
+import { UpdateMessageDto } from "./dto/update-message.dto";
 
 describe("MessagesService", () => {
     let service: MessagesService;
@@ -58,9 +59,9 @@ describe("MessagesService", () => {
 
     describe("create", () => {
         const userId = "user-postgres-id-123";
+        const userEmail = "recipient@example.com";
         const dto: CreateMessageDto = {
             content: "Тестовое послание в будущее",
-            recipientEmail: "recipient@example.com",
             triggerDate: new Date("2099-01-01T10:00:00.000Z"),
         };
 
@@ -68,7 +69,7 @@ describe("MessagesService", () => {
             (cryptoService.encrypt as jest.Mock).mockReturnValue(mockEncryptResult);
             mockSave.mockResolvedValue({ _id: { toString: () => "test-id" } });
 
-            await service.create(userId, { ...dto });
+            await service.create(userId, userEmail, { ...dto });
 
             expect(cryptoService.encrypt).toHaveBeenCalledTimes(1);
             expect(cryptoService.encrypt).toHaveBeenCalledWith(dto.content);
@@ -78,11 +79,11 @@ describe("MessagesService", () => {
             (cryptoService.encrypt as jest.Mock).mockReturnValue(mockEncryptResult);
             mockSave.mockResolvedValue({ _id: { toString: () => "test-id" } });
 
-            await service.create(userId, { ...dto });
+            await service.create(userId, userEmail, { ...dto });
 
             expect(mockMessageModel).toHaveBeenCalledWith({
                 userId,
-                recipientEmail: dto.recipientEmail,
+                recipientEmail: userEmail,
                 triggerDate: dto.triggerDate,
                 encryptedContent: mockEncryptResult.encryptedContent,
                 iv: mockEncryptResult.iv,
@@ -95,14 +96,14 @@ describe("MessagesService", () => {
             const savedDocument = {
                 _id: { toString: () => "mongo-object-id" },
                 userId,
-                recipientEmail: dto.recipientEmail,
+                recipientEmail: userEmail,
                 triggerDate: dto.triggerDate,
                 ...mockEncryptResult,
                 status: MessageStatus.PENDING,
             };
             mockSave.mockResolvedValue(savedDocument);
 
-            const result = await service.create(userId, { ...dto });
+            const result = await service.create(userId, userEmail, { ...dto });
 
             expect(mockSave).toHaveBeenCalledTimes(1);
             expect(result).toEqual(savedDocument);
@@ -118,7 +119,7 @@ describe("MessagesService", () => {
             };
             mockSave.mockResolvedValue(savedDocument);
 
-            const result = await service.create(userId, { ...dto });
+            const result = await service.create(userId, userEmail, { ...dto });
 
             expect(result.status).toBe(MessageStatus.PENDING);
         });
@@ -127,7 +128,7 @@ describe("MessagesService", () => {
             (cryptoService.encrypt as jest.Mock).mockReturnValue(mockEncryptResult);
             mockSave.mockResolvedValue({ _id: { toString: () => "test-id" } });
 
-            await service.create(userId, { ...dto });
+            await service.create(userId, userEmail, { ...dto });
 
             const constructorArg = mockMessageModel.mock.calls[0][0];
             expect(constructorArg).not.toHaveProperty("content");
@@ -144,7 +145,7 @@ describe("MessagesService", () => {
             const dtoWithDate = { ...dto, triggerDate };
             const expectedDelay = triggerDate.getTime() - mockNow;
 
-            await service.create(userId, dtoWithDate);
+            await service.create(userId, userEmail, dtoWithDate);
 
             expect(mockQueue.add).toHaveBeenCalledTimes(1);
             expect(mockQueue.add).toHaveBeenCalledWith(
@@ -174,6 +175,71 @@ describe("MessagesService", () => {
             expect(mockFind).toHaveBeenCalledWith({ userId: "user1" });
             expect(mockSelect).toHaveBeenCalledWith("-encryptedContent -iv -authTag");
             expect(result).toEqual([{ _id: "1", recipientEmail: "test@example.com" }]);
+        });
+    });
+
+    describe("update", () => {
+        const userId = "user1";
+        const msgId = "msg1";
+        const updateDto: UpdateMessageDto = { content: "Новый текст" };
+
+        it("должен выбросить NotFoundException если письмо не найдено", async () => {
+            mockFindById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+            await expect(service.update(msgId, userId, updateDto)).rejects.toThrow(
+                NotFoundException,
+            );
+        });
+
+        it("должен выбросить ForbiddenException если письмо чужое", async () => {
+            const mockDoc = { userId: "otherUser" };
+            mockFindById.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockDoc) });
+            await expect(service.update(msgId, userId, updateDto)).rejects.toThrow(
+                ForbiddenException,
+            );
+        });
+
+        it("должен выбросить ForbiddenException если статус не pending", async () => {
+            const mockDoc = { userId, status: MessageStatus.SENT };
+            mockFindById.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockDoc) });
+            await expect(service.update(msgId, userId, updateDto)).rejects.toThrow(
+                ForbiddenException,
+            );
+        });
+
+        it("должен выбросить ForbiddenException если прошло больше 24 часов", async () => {
+            const oldDate = new Date(Date.now() - 25 * 60 * 60 * 1000);
+            const mockDoc = { userId, status: MessageStatus.PENDING, createdAt: oldDate };
+            mockFindById.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockDoc) });
+            await expect(service.update(msgId, userId, updateDto)).rejects.toThrow(
+                ForbiddenException,
+            );
+        });
+
+        it("должен зашифровать новый текст и сохранить документ", async () => {
+            const recentDate = new Date();
+            const mockDoc = {
+                userId,
+                status: MessageStatus.PENDING,
+                createdAt: recentDate,
+                encryptedContent: "old",
+                iv: "old",
+                authTag: "old",
+                save: jest.fn().mockResolvedValue(true),
+            };
+            mockFindById.mockReturnValue({ exec: jest.fn().mockResolvedValue(mockDoc) });
+            (cryptoService.encrypt as jest.Mock).mockReturnValue({
+                encryptedContent: "newContent",
+                iv: "newIv",
+                authTag: "newTag",
+            });
+
+            await service.update(msgId, userId, { ...updateDto });
+
+            expect(cryptoService.encrypt).toHaveBeenCalledWith(updateDto.content);
+            expect(mockDoc.encryptedContent).toBe("newContent");
+            expect(mockDoc.iv).toBe("newIv");
+            expect(mockDoc.authTag).toBe("newTag");
+            expect(mockDoc.save).toHaveBeenCalled();
         });
     });
 
@@ -234,7 +300,7 @@ describe("MessagesService", () => {
     });
 
     describe("findByIdAndDecrypt", () => {
-        it("should throw NotFoundException if message is not found", async () => {
+        it("должен выбросить NotFoundException если письмо не найдено", async () => {
             const mockExec = jest.fn().mockResolvedValue(null);
             mockFindById.mockReturnValue({ exec: mockExec });
 
@@ -243,7 +309,7 @@ describe("MessagesService", () => {
             );
         });
 
-        it("should throw ForbiddenException if userId does not match", async () => {
+        it("должен выбросить ForbiddenException если письмо чужое", async () => {
             const mockDocument = { userId: "ownerId" };
             const mockExec = jest.fn().mockResolvedValue(mockDocument);
             mockFindById.mockReturnValue({ exec: mockExec });
@@ -253,7 +319,7 @@ describe("MessagesService", () => {
             );
         });
 
-        it("should decrypt and return message if authorized", async () => {
+        it("должен расшифровать контент, если письмо старше 24 часов, но статус не pending (например, SENT)", async () => {
             const mockDocument = {
                 _id: { toString: () => "msg1" },
                 userId: "ownerId",
@@ -263,7 +329,7 @@ describe("MessagesService", () => {
                 encryptedContent: "encrypted",
                 iv: "iv",
                 authTag: "tag",
-                createdAt: new Date("2026-01-01"),
+                createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // > 24 hours ago
             };
             const mockExec = jest.fn().mockResolvedValue(mockDocument);
             mockFindById.mockReturnValue({ exec: mockExec });
@@ -275,6 +341,53 @@ describe("MessagesService", () => {
             expect(result.content).toBe("decrypted-content");
             expect(result.status).toBe(MessageStatus.SENT);
             expect(mockCryptoService.decrypt).toHaveBeenCalledWith("encrypted", "iv", "tag");
+        });
+
+        it("должен вернуть isLocked: true и не расшифровывать контент, если письмо pending и старше 24 часов", async () => {
+            const oldDate = new Date(Date.now() - 25 * 60 * 60 * 1000);
+            const mockDocument = {
+                _id: { toString: () => "msg1" },
+                userId: "ownerId",
+                recipientEmail: "test@example.com",
+                triggerDate: new Date("2099-01-01"),
+                status: MessageStatus.PENDING,
+                encryptedContent: "encrypted",
+                iv: "iv",
+                authTag: "tag",
+                createdAt: oldDate,
+            };
+            const mockExec = jest.fn().mockResolvedValue(mockDocument);
+            mockFindById.mockReturnValue({ exec: mockExec });
+
+            const result = await service.findByIdAndDecrypt("msg1", "ownerId");
+
+            expect(result.id).toBe("msg1");
+            expect(result).not.toHaveProperty("content");
+            expect(result).toHaveProperty("isLocked", true);
+            expect(mockCryptoService.decrypt).not.toHaveBeenCalled();
+        });
+
+        it("должен расшифровать контент, если письмо pending, но создано менее 24 часов назад", async () => {
+            const recentDate = new Date(Date.now() - 2 * 60 * 60 * 1000);
+            const mockDocument = {
+                _id: { toString: () => "msg1" },
+                userId: "ownerId",
+                recipientEmail: "test@example.com",
+                triggerDate: new Date("2099-01-01"),
+                status: MessageStatus.PENDING,
+                encryptedContent: "encrypted",
+                iv: "iv",
+                authTag: "tag",
+                createdAt: recentDate,
+            };
+            const mockExec = jest.fn().mockResolvedValue(mockDocument);
+            mockFindById.mockReturnValue({ exec: mockExec });
+            mockCryptoService.decrypt.mockReturnValue("decrypted-content");
+
+            const result = await service.findByIdAndDecrypt("msg1", "ownerId");
+
+            expect(result.content).toBe("decrypted-content");
+            expect(mockCryptoService.decrypt).toHaveBeenCalled();
         });
     });
 });

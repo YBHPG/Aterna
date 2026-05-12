@@ -6,6 +6,7 @@ import { Model } from "mongoose";
 import { CryptoService } from "../crypto/crypto.service";
 import { Message, MessageDocument, MessageStatus } from "../database/schemas/message.schema";
 import { CreateMessageDto } from "./dto/create-message.dto";
+import { UpdateMessageDto } from "./dto/update-message.dto";
 
 @Injectable()
 export class MessagesService {
@@ -15,7 +16,11 @@ export class MessagesService {
         @InjectQueue("email-delivery-queue") private readonly emailQueue: Queue,
     ) {}
 
-    async create(userId: string, dto: CreateMessageDto): Promise<MessageDocument> {
+    async create(
+        userId: string,
+        userEmail: string,
+        dto: CreateMessageDto,
+    ): Promise<MessageDocument> {
         // Шифруем открытый текст
         const { encryptedContent, iv, authTag } = this.cryptoService.encrypt(dto.content);
 
@@ -26,7 +31,7 @@ export class MessagesService {
         // Сохраняем криптоконтейнер и метаданные в MongoDB
         const message = new this.messageModel({
             userId,
-            recipientEmail: dto.recipientEmail,
+            recipientEmail: userEmail,
             triggerDate: dto.triggerDate,
             encryptedContent,
             iv,
@@ -53,6 +58,38 @@ export class MessagesService {
     }
     async findAllByUser(userId: string): Promise<MessageDocument[]> {
         return this.messageModel.find({ userId }).select("-encryptedContent -iv -authTag").exec();
+    }
+
+    async update(id: string, userId: string, dto: UpdateMessageDto): Promise<MessageDocument> {
+        const message = await this.messageModel.findById(id).exec();
+
+        if (!message) {
+            throw new NotFoundException("Message not found");
+        }
+
+        if (message.userId !== userId) {
+            throw new ForbiddenException("You do not have permission to edit this message");
+        }
+
+        if (message.status !== MessageStatus.PENDING) {
+            throw new ForbiddenException("Можно редактировать только письма в статусе pending");
+        }
+
+        const createdAt = (message as any).createdAt;
+        if (createdAt && Date.now() - createdAt.getTime() > 24 * 60 * 60 * 1000) {
+            throw new ForbiddenException("Время на редактирование истекло");
+        }
+
+        const { encryptedContent, iv, authTag } = this.cryptoService.encrypt(dto.content);
+
+        // Требование безопасности: немедленно перезаписываем открытый текст в памяти
+        (dto as unknown as Record<string, unknown>).content = "";
+
+        message.encryptedContent = encryptedContent;
+        message.iv = iv;
+        message.authTag = authTag;
+
+        return message.save();
     }
 
     async cancel(id: string, userId: string): Promise<MessageDocument> {
@@ -85,6 +122,21 @@ export class MessagesService {
             throw new ForbiddenException("You do not have permission to access this message");
         }
 
+        const createdAt = (message as any).createdAt;
+        const isPending = message.status === MessageStatus.PENDING;
+        const isOlderThan24h = createdAt && Date.now() - createdAt.getTime() > 24 * 60 * 60 * 1000;
+
+        if (isPending && isOlderThan24h) {
+            return {
+                id: message._id.toString(),
+                recipientEmail: message.recipientEmail,
+                triggerDate: message.triggerDate,
+                status: message.status,
+                isLocked: true,
+                createdAt,
+            };
+        }
+
         const decryptedContent = this.cryptoService.decrypt(
             message.encryptedContent,
             message.iv,
@@ -97,7 +149,7 @@ export class MessagesService {
             triggerDate: message.triggerDate,
             status: message.status,
             content: decryptedContent,
-            createdAt: (message as any).createdAt,
+            createdAt,
         };
     }
 }

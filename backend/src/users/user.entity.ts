@@ -27,7 +27,7 @@ export class User {
     passwordHash?: string;
 
     @Column({ nullable: true, unique: true })
-    telegramId?: string;
+    telegramId?: string | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date;

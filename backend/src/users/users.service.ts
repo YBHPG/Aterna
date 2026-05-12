@@ -12,6 +12,10 @@ export class UsersService {
         private readonly usersRepo: Repository<User>,
     ) {}
 
+    public async save(user: User): Promise<User> {
+        return this.usersRepo.save(user);
+    }
+
     public async findByEmail(emailAddress: string): Promise<User | null> {
         return this.usersRepo.findOne({
             where: { email: emailAddress.toLowerCase() },

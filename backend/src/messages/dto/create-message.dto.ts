@@ -1,21 +1,12 @@
-import {
-  IsEmail,
-  IsString,
-  MaxLength,
-  IsDateString,
-  MinDate,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, MaxLength, IsDateString, MinDate } from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreateMessageDto {
-  @IsString({ message: 'Текст сообщения должен быть строкой' })
-  @MaxLength(10000, { message: 'Максимальная длина сообщения — 10 000 символов' })
-  content: string;
+    @IsString({ message: "Текст сообщения должен быть строкой" })
+    @MaxLength(10000, { message: "Максимальная длина сообщения — 10 000 символов" })
+    content: string;
 
-  @IsEmail({}, { message: 'Некорректный формат email получателя' })
-  recipientEmail: string;
-
-  @Type(() => Date)
-  @MinDate(new Date(), { message: 'Дата отправки должна быть в будущем' })
-  triggerDate: Date;
+    @Type(() => Date)
+    @MinDate(new Date(), { message: "Дата отправки должна быть в будущем" })
+    triggerDate: Date;
 }

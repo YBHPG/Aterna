@@ -7,9 +7,10 @@ import { UsersModule } from "./users/users.module";
 import { AuthModule } from "./auth/auth.module";
 import { CryptoModule } from "./crypto/crypto.module";
 import { MessagesModule } from "./messages/messages.module";
-import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from './auth/jwt-auth.guard';
-import { BullModule } from '@nestjs/bullmq';
+import { APP_GUARD } from "@nestjs/core";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
+import { BullModule } from "@nestjs/bullmq";
+import { ProfileModule } from "./users/profile.module";
 
 @Module({
     imports: [
@@ -33,8 +34,8 @@ import { BullModule } from '@nestjs/bullmq';
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => ({
                 connection: {
-                    host: configService.get<string>('REDIS_HOST'),
-                    port: configService.get<number>('REDIS_PORT'),
+                    host: configService.get<string>("REDIS_HOST"),
+                    port: configService.get<number>("REDIS_PORT"),
                 },
             }),
             inject: [ConfigService],
@@ -45,6 +46,7 @@ import { BullModule } from '@nestjs/bullmq';
         AuthModule,
         CryptoModule,
         MessagesModule,
+        ProfileModule,
     ],
     controllers: [],
     providers: [
