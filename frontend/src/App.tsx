@@ -5,16 +5,13 @@ import Register from "./pages/Register";
 import { CreateMessage } from "./components/CreateMessage";
 import { Dashboard } from "./components/Dashboard";
 import ViewMessage from "./pages/ViewMessage";
-
-function Home() {
-    return <div>Home Page</div>;
-}
+import Profile from "./pages/Profile";
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<CreateMessage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route
@@ -26,10 +23,10 @@ function App() {
                     }
                 />
                 <Route
-                    path="/create"
+                    path="/profile"
                     element={
                         <ProtectedRoute>
-                            <CreateMessage />
+                            <Profile />
                         </ProtectedRoute>
                     }
                 />

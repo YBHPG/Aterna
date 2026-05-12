@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 interface CreateMessageForm {
     content: string;
@@ -14,9 +15,35 @@ export const CreateMessage: React.FC = () => {
         register,
         handleSubmit,
         reset,
+        watch,
         formState: { errors },
     } = useForm<CreateMessageForm>();
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
+
+    // Восстановление черновика из localStorage при загрузке компонента
+    useEffect(() => {
+        const savedDraft = localStorage.getItem("draft_message");
+        if (savedDraft) {
+            try {
+                const parsedDraft = JSON.parse(savedDraft);
+                if (parsedDraft && (parsedDraft.content || parsedDraft.triggerDate)) {
+                    reset(parsedDraft);
+                    alert("Восстановлен черновик"); // Замените на Toast-библиотеку при необходимости
+                }
+            } catch (error) {
+                console.error("Не удалось восстановить черновик:", error);
+            }
+        }
+    }, [reset]);
+
+    // Отслеживаем изменения формы "на лету" и пишем черновик в localStorage
+    useEffect(() => {
+        const subscription = watch((value) => {
+            localStorage.setItem("draft_message", JSON.stringify(value));
+        });
+        return () => subscription.unsubscribe();
+    }, [watch]);
 
     // Обязательная очистка стейта формы при размонтировании (unmount)
     useEffect(() => {
@@ -26,6 +53,11 @@ export const CreateMessage: React.FC = () => {
     }, [reset]);
 
     const onSubmit = async (data: CreateMessageForm) => {
+        if (!isAuthenticated) {
+            navigate("/register?intent=send_draft");
+            return;
+        }
+
         try {
             // Преобразуем дату из локального формата input в ISO-строку (UTC)
             const payload = {

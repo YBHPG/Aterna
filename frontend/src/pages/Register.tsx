@@ -20,6 +20,27 @@ const Register: React.FC = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
 
+    const processDraftAndRedirect = async () => {
+        const draft = localStorage.getItem("draft_message");
+        if (draft) {
+            try {
+                const parsedDraft = JSON.parse(draft);
+                if (parsedDraft.content && parsedDraft.triggerDate) {
+                    const payload = {
+                        ...parsedDraft,
+                        triggerDate: new Date(parsedDraft.triggerDate).toISOString(),
+                    };
+                    await api.post("/messages", payload);
+                    localStorage.removeItem("draft_message");
+                    alert("Отложенное письмо успешно отправлено!");
+                }
+            } catch (err) {
+                console.error("Ошибка при отправке черновика:", err);
+            }
+        }
+        navigate("/dashboard");
+    };
+
     const onSubmit = async (data: RegisterFormInputs) => {
         try {
             // Очистка входной строки firstName от HTML-тегов перед отправкой во избежание XSS
@@ -33,7 +54,7 @@ const Register: React.FC = () => {
                 response.data.token || response.data.access_token || response.data.accessToken;
             if (token) {
                 login(token); // сразу авторизуем после успешной регистрации (если backend возвращает токен)
-                navigate("/dashboard");
+                await processDraftAndRedirect();
             } else {
                 navigate("/login"); // если токена нет, отправляем на страницу входа
             }
@@ -50,7 +71,7 @@ const Register: React.FC = () => {
                 response.data.token || response.data.access_token || response.data.accessToken;
             if (token) {
                 login(token); // сразу авторизуем после успешной регистрации
-                navigate("/dashboard");
+                await processDraftAndRedirect();
             }
         } catch (error) {
             console.error("Ошибка при входе через Telegram:", error);
