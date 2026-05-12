@@ -40,6 +40,12 @@ export class UsersService {
         });
     }
 
+    public async findByTelegramConnectionToken(token: string): Promise<User | null> {
+        return this.usersRepo.findOne({
+            where: { telegramConnectionToken: token },
+        });
+    }
+
     public async confirmEmail(user: User): Promise<User> {
         user.isEmailConfirmed = true;
         user.emailConfirmationToken = null as any;

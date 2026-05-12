@@ -29,6 +29,9 @@ export class User {
     @Column({ nullable: true, unique: true })
     telegramId?: string | null;
 
+    @Column({ nullable: true })
+    telegramConnectionToken?: string;
+
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date;
 

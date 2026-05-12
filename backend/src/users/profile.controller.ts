@@ -1,4 +1,4 @@
-import { Controller, Patch, Delete, Post, Body } from "@nestjs/common";
+import { Controller, Patch, Delete, Post, Body, Get } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
 import { UpdatePasswordDto } from "./dto/update-password.dto";
 import { UpdateEmailDto } from "./dto/update-email.dto";
@@ -27,6 +27,12 @@ export class ProfileController {
     public async unlinkTelegram(@CurrentUser() user: any) {
         await this.profileService.unlinkTelegram(user.userId);
         return { message: "Telegram успешно отвязан" };
+    }
+
+    @Get("telegram-link")
+    public async getTelegramLink(@CurrentUser() user: any) {
+        const link = await this.profileService.generateTelegramLink(user.userId);
+        return { link };
     }
 
     @Post("telegram")

@@ -55,35 +55,32 @@ export class EmailDeliveryProcessor extends WorkerHost {
 
             let decryptedContent = this.cryptoService.decrypt(encryptedContent, iv, authTag);
 
-            const preview =
-                decryptedContent.length > 100
-                    ? decryptedContent.substring(0, 100) + "..."
-                    : decryptedContent;
-
             const link = `${process.env.FRONTEND_URL}/messages/${messageId}`;
             const dashboardUrl = `${process.env.FRONTEND_URL}/dashboard`;
 
             if (recipientEmail) {
-                if (user && user.isEmailConfirmed === false) {
-                    this.logger.warn(
-                        `User ${userId} has unconfirmed email. Skipping email delivery.`,
-                    );
-                } else {
+                if (user?.isEmailConfirmed === true) {
                     await this.emailService.sendNotificationEmail(
                         recipientEmail,
-                        user?.firstName,
+                        user.firstName,
                         (message as any).createdAt,
-                        preview,
+                        decryptedContent,
                         link,
                     );
                     this.logger.log(`Email sent for message ${messageId}.`);
+                } else {
+                    this.logger.warn(
+                        `User ${userId} has unconfirmed email or not found. Skipping email delivery.`,
+                    );
                 }
             }
 
             if (user?.telegramId) {
+                const telegramText = `У вас новое письмо из прошлого!\n\n${decryptedContent}`;
                 await this.telegramService.sendNotification(
                     user.telegramId,
-                    `У вас новое письмо из прошлого! Прочитать: ${link}\nДашборд: ${dashboardUrl}`,
+                    telegramText,
+                    dashboardUrl,
                 );
                 this.logger.log(`Telegram notification sent for message ${messageId}.`);
             }

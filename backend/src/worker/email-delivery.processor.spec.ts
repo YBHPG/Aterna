@@ -116,6 +116,7 @@ describe("EmailDeliveryProcessor", () => {
             id: "user-id",
             firstName: "John",
             telegramId: "tg-123",
+            isEmailConfirmed: true,
         });
         mockCryptoService.decrypt.mockReturnValueOnce("decrypted-content");
         mockEmailService.sendNotificationEmail.mockResolvedValueOnce(undefined);
@@ -139,7 +140,8 @@ describe("EmailDeliveryProcessor", () => {
         );
         expect(telegramService.sendNotification).toHaveBeenCalledWith(
             "tg-123",
-            `У вас новое письмо из прошлого! Прочитать: ${process.env.FRONTEND_URL}/messages/message-id\nДашборд: ${process.env.FRONTEND_URL}/dashboard`,
+            "У вас новое письмо из прошлого!\n\ndecrypted-content",
+            `${process.env.FRONTEND_URL}/dashboard`,
         );
         expect(mockMessage.status).toBe(MessageStatus.SENT);
         expect(mockSave).toHaveBeenCalled();
@@ -192,7 +194,11 @@ describe("EmailDeliveryProcessor", () => {
         };
 
         mockMessageModel.findById.mockResolvedValueOnce(mockMessage);
-        mockUsersService.findById.mockResolvedValueOnce({ id: "user-id", firstName: "John" });
+        mockUsersService.findById.mockResolvedValueOnce({
+            id: "user-id",
+            firstName: "John",
+            isEmailConfirmed: true,
+        });
         mockCryptoService.decrypt.mockReturnValueOnce("decrypted-content");
         mockEmailService.sendNotificationEmail.mockRejectedValueOnce(new Error("Email failed"));
 

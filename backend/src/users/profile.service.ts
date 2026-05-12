@@ -61,6 +61,19 @@ export class ProfileService {
         return this.usersService.save(user);
     }
 
+    public async generateTelegramLink(userId: string): Promise<string> {
+        const user = await this.usersService.findById(userId);
+        if (!user) throw new UnauthorizedException("Пользователь не найден");
+
+        // Генерируем уникальный токен из 32 символов (Telegram поддерживает payload до 64 символов)
+        const token = crypto.randomBytes(16).toString("hex");
+        user.telegramConnectionToken = token;
+        await this.usersService.save(user);
+
+        const botName = process.env.TELEGRAM_BOT_NAME || "Aterna_Bot"; // Укажите юзернейм вашего бота в .env (без @)
+        return `https://t.me/${botName}?start=${token}`;
+    }
+
     public async linkTelegram(userId: string, dto: TelegramAuthDto) {
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         if (!botToken)
