@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "10.0.0.2:3000:3000"
     depends_on:
       - postgres
       - mongodb
@@ -37,7 +37,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3001:80" # Внутренний Nginx работает на порту 80, прокидываем наружу на 3001
+      - "10.0.0.2:3001:80" # Внутренний Nginx работает на порту 80, прокидываем наружу на 3001
     depends_on:
       - backend
 
