@@ -32,7 +32,6 @@ lerna-debug.log*
 # Системные файлы
 .DS_Store
 Thumbs.db
-package-lock.json
 
 # Настройки IDE
 .vscode/*
