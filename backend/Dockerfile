@@ -1,19 +1,25 @@
-FROM node:20-alpine
+# Этап 1: Сборка (Build)
+FROM node:20-alpine AS builder
+WORKDIR /usr/src/app
+COPY package*.json ./
+# Используем npm ci для строгой фиксации версий зависимостей (быстрее и надежнее npm install)
+RUN npm ci
+COPY . .
+RUN npm run build
 
-# Создаем рабочую директорию
+# Этап 2: Продакшен (Production)
+FROM node:20-alpine
 WORKDIR /usr/src/app
 
-# Копируем файлы зависимостей
+# Копируем только файлы для установки prod-зависимостей
 COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Устанавливаем зависимости
-RUN npm install
+# Копируем скомпилированный код из builder-а
+COPY --from=builder /usr/src/app/dist ./dist
 
-# Копируем исходный код приложения
-COPY . .
+# Запускаем процесс от непривилегированного пользователя для защиты сервера
+USER node
 
-# Порт по умолчанию для NestJS
 EXPOSE 3000
-
-# Запуск приложения
-CMD ["npm", "run", "start:dev"]
+CMD ["npm", "run", "start:prod"]

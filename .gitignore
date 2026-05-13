@@ -39,3 +39,13 @@ package-lock.json
 !.vscode/settings.json
 .idea
 .vscode
+
+# Учетные данные и секреты
+.env
+*.env
+backend/.env
+frontend/.env
+
+# Зависимости и сборки
+node_modules/
+dist/

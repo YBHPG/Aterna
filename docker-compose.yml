@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # 1. Бэкенд (основное API)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    env_file:
+      - ./backend/.env
+
+  # 1.1 Воркер-процесс бэкенда (для фоновой отправки писем, описан в README)
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["npm", "run", "start:prod:worker"]
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    env_file:
+      - ./backend/.env
+
+  # 2. Фронтенд (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:80" # Внутренний Nginx работает на порту 80, прокидываем наружу на 3001
+    depends_on:
+      - backend
+
+  # 3. Инфраструктура (БД и брокер очередей)
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aterna}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aterna}
+      POSTGRES_DB: ${POSTGRES_DB:-aterna}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27018:27017" # Порт 27018 пробрасывается на хост, как указано в вашем README
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-aterna}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-aterna}
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  postgres_data:
+  mongodb_data:
