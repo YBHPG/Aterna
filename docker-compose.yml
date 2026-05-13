@@ -45,23 +45,20 @@ services:
   postgres:
     image: postgres:15-alpine
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     ports:
       - "127.0.0.1:5432:5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-aterna}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aterna}
-      POSTGRES_DB: ${POSTGRES_DB:-aterna}
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   mongodb:
     image: mongo:4.4.18
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     ports:
       - "127.0.0.1:27018:27017" # Порт 27018 пробрасывается на хост, как указано в вашем README
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-aterna}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-aterna}
     volumes:
       - mongodb_data:/data/db
 
