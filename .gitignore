@@ -44,7 +44,9 @@ Thumbs.db
 .env
 *.env
 backend/.env
+backend/.env.*
 frontend/.env
+frontend/.env.*
 
 # Зависимости и сборки
 node_modules/
