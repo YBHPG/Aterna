@@ -77,7 +77,10 @@ export class ProfileService {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException("Пользователь не найден");
 
-        if (!(user as any).passwordChangeOtp || (user as any).passwordChangeOtp !== dto.otp) {
+        const savedOtp = String(user.passwordChangeOtp || "").trim();
+        const inputOtp = String(dto.otp || "").trim();
+
+        if (!savedOtp || savedOtp !== inputOtp) {
             throw new BadRequestException("Неверный код подтверждения");
         }
         if (

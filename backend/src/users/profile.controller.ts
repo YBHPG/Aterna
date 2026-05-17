@@ -30,8 +30,12 @@ export class ProfileController {
     }
 
     @Patch("password")
-    public async updatePassword(@CurrentUser() user: any, @Body() dto: UpdatePasswordDto) {
-        return this.profileService.updatePassword(user.userId, dto);
+    public async updatePassword(
+        @CurrentUser() user: any,
+        @Body() dto: UpdatePasswordDto,
+        @Body("otp") otp: string,
+    ) {
+        return this.profileService.updatePassword(user.userId, { ...dto, otp });
     }
 
     @Patch("email")
