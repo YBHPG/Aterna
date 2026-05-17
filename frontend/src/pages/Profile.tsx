@@ -9,7 +9,7 @@ const Profile: React.FC = () => {
     const { logout, user } = useAuth() as any;
     const navigate = useNavigate();
     const [isMenuHovered, setIsMenuHovered] = useState(false);
-    const [refreshKey, setRefreshKey] = useState(0);
+    const [, setRefreshKey] = useState(0);
 
     // Безопасное декодирование JWT токена
     const decodeJWT = (token: string) => {
