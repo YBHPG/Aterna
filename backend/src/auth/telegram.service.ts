@@ -22,7 +22,7 @@ export class TelegramService {
         const messageToSend = text.length <= 4000 ? text : text.substring(0, 4000) + "...";
 
         const replyMarkup = {
-            inline_keyboard: [[{ text: "Перейти в Дашборд", url: dashboardUrl }]],
+            inline_keyboard: [[{ text: "Перейти к письмам", url: dashboardUrl }]],
         };
 
         try {
@@ -38,6 +38,30 @@ export class TelegramService {
         } catch (error: any) {
             this.logger.error(
                 `Ошибка при отправке сообщения в Telegram (${telegramId}): ${error.message}`,
+            );
+        }
+    }
+
+    async sendMessage(chatId: string, text: string): Promise<void> {
+        const botToken = process.env.TELEGRAM_BOT_TOKEN;
+        if (!botToken) {
+            this.logger.warn("TELEGRAM_BOT_TOKEN не настроен. Пропуск отправки.");
+            return;
+        }
+
+        try {
+            const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+            await lastValueFrom(
+                this.httpService.post(url, {
+                    chat_id: chatId,
+                    text: text,
+                    parse_mode: "Markdown",
+                }),
+            );
+            this.logger.log(`[Telegram] Сообщение отправлено ${chatId}`);
+        } catch (error: any) {
+            this.logger.error(
+                `Ошибка при отправке сообщения в Telegram (${chatId}): ${error.message}`,
             );
         }
     }

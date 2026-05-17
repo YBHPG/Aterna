@@ -24,8 +24,9 @@ lerna-debug.log*
 .env
 .env.test
 .env.production
+.env.development
 .env.local
-
+./backend/.env.development
 # Кэш TypeScript / TypeORM
 *.tsbuildinfo
 

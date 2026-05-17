@@ -83,10 +83,9 @@ const ConfirmEmail: React.FC = () => {
                 style={{ maxWidth: 1120 }}
             >
                 <div
-                    className="w-full px-6 py-12 flex flex-col items-center text-center mx-auto"
+                    className="w-full px-6 py-12 flex flex-col items-center text-center mx-auto rounded-[30px] md:rounded-[50px]"
                     style={{
                         backgroundColor: "var(--color-bg-card)",
-                        borderRadius: 50,
                         maxWidth: 450,
                         boxShadow:
                             "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
