@@ -46,7 +46,7 @@ export default function Home() {
     const [calendarPosition, setCalendarPosition] = useState<"top" | "bottom">("bottom");
     const calendarButtonRef = useRef<HTMLDivElement>(null);
     const [isMenuHovered, setIsMenuHovered] = useState(false);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const draftRestoredRef = useRef(false);
     const selectedRef = useRef<DeliveryOption>(selected);
 

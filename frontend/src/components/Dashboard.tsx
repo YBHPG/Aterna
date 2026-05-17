@@ -19,7 +19,7 @@ export const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
-    const { logout, user, isAuthenticated } = useAuth() as any;
+    const { logout, user } = useAuth() as any;
     const [isMenuHovered, setIsMenuHovered] = useState(false);
     const cancelTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -91,7 +91,7 @@ export const Dashboard: React.FC = () => {
 
         // Показываем тост с кнопкой отмены
         toast.custom(
-            (t) => (
+            (t: any) => (
                 <div
                     className={`${t.visible ? "opacity-100" : "opacity-0"} transition-opacity duration-300 relative flex flex-col bg-[var(--color-bg-card)] text-[var(--color-text-main)] rounded-[22px] border-2 border-[rgba(var(--rgb-border),0.2)] shadow-[0px_10px_25px_-5px_rgba(0,0,0,0.3),0px_8px_10px_-6px_rgba(0,0,0,0.1)] overflow-hidden group`}
                     style={{ fontFamily: "Cormorant, serif", fontSize: "18px", fontWeight: 400 }}
