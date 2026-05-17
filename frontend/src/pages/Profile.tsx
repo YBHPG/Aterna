@@ -4,12 +4,23 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import { createPortal } from "react-dom";
 
 const Profile: React.FC = () => {
     const { logout, user } = useAuth() as any;
     const navigate = useNavigate();
     const [isMenuHovered, setIsMenuHovered] = useState(false);
     const [, setRefreshKey] = useState(0);
+    const [showOldPassword, setShowOldPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+    const [otpTimer, setOtpTimer] = useState(0);
+    const [otpCode, setOtpCode] = useState("");
+    const [otpMethod, setOtpMethod] = useState<"telegram" | "email">("email");
+    const [pendingPasswordData, setPendingPasswordData] = useState<{
+        oldPassword?: string;
+        newPassword: string;
+    } | null>(null);
 
     // Безопасное декодирование JWT токена
     const decodeJWT = (token: string) => {
@@ -73,6 +84,15 @@ const Profile: React.FC = () => {
         };
     }, []);
 
+    // Таймер для OTP модалки
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+        if (isOtpModalOpen && otpTimer > 0) {
+            interval = setInterval(() => setOtpTimer((prev) => prev - 1), 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isOtpModalOpen, otpTimer]);
+
     // Предпочитаем свежие данные из токена напрямую, иначе фоллбэк на контекст
     const currentUser = decodedToken || user?.user || user;
     const displayName =
@@ -109,16 +129,34 @@ const Profile: React.FC = () => {
     const {
         register: registerEmail,
         handleSubmit: handleEmailSubmit,
+        reset: resetEmailForm,
         formState: { errors: emailErrors },
-    } = useForm<{ email: string }>();
+    } = useForm<{ email: string }>({
+        defaultValues: {
+            email:
+                currentUser?.email && !currentUser.email.endsWith("@telegram.local")
+                    ? currentUser.email
+                    : "",
+        },
+    });
+
+    useEffect(() => {
+        if (currentUser?.email && !currentUser.email.endsWith("@telegram.local")) {
+            resetEmailForm({ email: currentUser.email });
+        }
+    }, [currentUser, resetEmailForm]);
 
     // Форма смены пароля
     const {
         register: registerPassword,
         handleSubmit: handlePasswordSubmit,
         reset: resetPasswordForm,
+        watch: watchPassword,
         formState: { errors: passwordErrors },
     } = useForm<{ oldPassword?: string; newPassword: string }>();
+
+    const oldPasswordValue = watchPassword("oldPassword");
+    const newPasswordValue = watchPassword("newPassword");
 
     const onNameChange = async (data: { firstName: string }) => {
         try {
@@ -145,6 +183,11 @@ const Profile: React.FC = () => {
     };
 
     const onEmailChange = async (data: { email: string }) => {
+        if (currentUser?.email === data.email) {
+            toast("Это ваш текущий email", { icon: "ℹ️" });
+            return;
+        }
+
         try {
             await api.patch("/profile/email", data);
             toast.success("Email успешно обновлен!");
@@ -154,10 +197,50 @@ const Profile: React.FC = () => {
         }
     };
 
-    const onPasswordChange = async (data: { oldPassword?: string; newPassword: string }) => {
+    const onPasswordSubmitRequest = async (data: { oldPassword?: string; newPassword: string }) => {
         try {
-            const response = await api.patch("/profile/password", data);
-            toast.success("Пароль успешно сохранен!");
+            // 1. Сначала запрашиваем код (автоматически отправится в Telegram, если он есть)
+            const response = await api.post("/profile/password/otp", { fallbackToEmail: false });
+            setOtpMethod(response.data.sentVia);
+            setPendingPasswordData(data);
+            setOtpCode("");
+            setOtpTimer(30);
+            setIsOtpModalOpen(true);
+            toast.success(
+                response.data.sentVia === "telegram"
+                    ? "Код отправлен в Telegram"
+                    : "Код отправлен на почту",
+            );
+        } catch (error: any) {
+            console.error("Ошибка при запросе кода:", error);
+            toast.error(error.response?.data?.message || "Не удалось запросить код");
+        }
+    };
+
+    const requestFallbackEmailOtp = async () => {
+        try {
+            const response = await api.post("/profile/password/otp", { fallbackToEmail: true });
+            setOtpMethod(response.data.sentVia);
+            setOtpTimer(30);
+            setOtpCode("");
+            toast.success("Новый код отправлен на почту");
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Ошибка при запросе кода на почту");
+        }
+    };
+
+    const confirmPasswordChange = async () => {
+        if (!otpCode || otpCode.length !== 6) {
+            toast.error("Введите 6-значный код");
+            return;
+        }
+        try {
+            // 2. Отправляем пароли вместе с кодом
+            const response = await api.patch("/profile/password", {
+                ...pendingPasswordData,
+                otp: otpCode,
+            });
+            toast.success("Пароль успешно изменен!");
             const newToken =
                 response.data?.token || response.data?.access_token || response.data?.accessToken;
             if (newToken) {
@@ -166,9 +249,11 @@ const Profile: React.FC = () => {
                 setTimeout(() => window.location.reload(), 500);
             }
             resetPasswordForm();
+            setIsOtpModalOpen(false);
+            setPendingPasswordData(null);
         } catch (error: any) {
             console.error("Ошибка при смене пароля:", error);
-            toast.error(error.response?.data?.message || "Не удалось изменить пароль");
+            toast.error(error.response?.data?.message || "Неверный код");
         }
     };
 
@@ -181,6 +266,15 @@ const Profile: React.FC = () => {
     // Возвращаем строгую проверку подтверждения почты
     const canUnlinkTelegram = hasEmail && hasPassword && isEmailConfirmed;
     const isTelegramLinked = !!currentUser?.telegramId;
+
+    const getUnlinkError = () => {
+        if (!hasEmail) return "Чтобы отвязать Telegram, добавьте email в настройках выше.";
+        if (!isEmailConfirmed)
+            return "Чтобы отвязать Telegram, подтвердите ваш email (ссылка отправлена на почту).";
+        if (!hasPassword) return "Чтобы отвязать Telegram, установите пароль.";
+        return "";
+    };
+    const unlinkErrorText = getUnlinkError();
 
     const onTelegramUnbind = async () => {
         if (!canUnlinkTelegram) return;
@@ -245,7 +339,7 @@ const Profile: React.FC = () => {
                 >
                     <Link
                         to="/profile"
-                        className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[200px] sm:max-w-[250px] truncate"
+                        className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[150px] sm:max-w-[250px] truncate"
                         style={{
                             fontFamily: "Cormorant, serif",
                             fontSize: nameFontSize,
@@ -268,7 +362,7 @@ const Profile: React.FC = () => {
                                 textDecoration: "none",
                             }}
                         >
-                            Дашборд
+                            Список писем
                         </Link>
                         <button
                             type="button"
@@ -298,10 +392,9 @@ const Profile: React.FC = () => {
                 style={{ maxWidth: 1120 }}
             >
                 <div
-                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto"
+                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto rounded-[30px] md:rounded-[50px]"
                     style={{
                         backgroundColor: "var(--color-bg-card)",
-                        borderRadius: 50,
                         maxWidth: 548,
                         boxShadow:
                             "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
@@ -418,7 +511,7 @@ const Profile: React.FC = () => {
                                             color: "var(--color-text-main)",
                                         }}
                                     >
-                                        Новый Email
+                                        Ваш Email
                                     </label>
                                     <div
                                         className="flex items-center px-4 py-2.5 relative transition-opacity"
@@ -484,9 +577,18 @@ const Profile: React.FC = () => {
                                 {hasPassword ? "Сменить пароль" : "Установить пароль"}
                             </h3>
                             <form
-                                onSubmit={handlePasswordSubmit(onPasswordChange)}
+                                onSubmit={handlePasswordSubmit(onPasswordSubmitRequest)}
                                 className="flex flex-col gap-5"
                             >
+                                {/* Скрытое поле для менеджеров паролей (Bitwarden, Chrome, Safari) */}
+                                <input
+                                    type="text"
+                                    name="username"
+                                    autoComplete="username"
+                                    value={currentUser?.email || ""}
+                                    readOnly
+                                    style={{ display: "none" }}
+                                />
                                 {hasPassword && (
                                     <div className="flex flex-col gap-2">
                                         <label
@@ -507,7 +609,7 @@ const Profile: React.FC = () => {
                                             }}
                                         >
                                             <input
-                                                type="password"
+                                                type={showOldPassword ? "text" : "password"}
                                                 {...registerPassword("oldPassword", {
                                                     required: "Введите текущий пароль",
                                                 })}
@@ -521,6 +623,49 @@ const Profile: React.FC = () => {
                                                 }}
                                                 autoComplete="current-password"
                                             />
+                                            {!!oldPasswordValue && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setShowOldPassword(!showOldPassword)
+                                                    }
+                                                    className="ml-2 text-[var(--color-text-main)] opacity-60 hover:opacity-100 transition-opacity focus:outline-none flex-shrink-0"
+                                                >
+                                                    {showOldPassword ? (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="20"
+                                                            height="20"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        >
+                                                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                                                            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                                                            <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                                                            <line x1="2" y1="2" x2="22" y2="22" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="20"
+                                                            height="20"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        >
+                                                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                                            <circle cx="12" cy="12" r="3" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
                                         {passwordErrors.oldPassword && (
                                             <span className="text-sm text-red-500">
@@ -548,7 +693,7 @@ const Profile: React.FC = () => {
                                         }}
                                     >
                                         <input
-                                            type="password"
+                                            type={showNewPassword ? "text" : "password"}
                                             {...registerPassword("newPassword", {
                                                 required: "Введите новый пароль",
                                                 minLength: {
@@ -566,6 +711,47 @@ const Profile: React.FC = () => {
                                             }}
                                             autoComplete="new-password"
                                         />
+                                        {!!newPasswordValue && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="ml-2 text-[var(--color-text-main)] opacity-60 hover:opacity-100 transition-opacity focus:outline-none flex-shrink-0"
+                                            >
+                                                {showNewPassword ? (
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="20"
+                                                        height="20"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                                                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                                                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                                                        <line x1="2" y1="2" x2="22" y2="22" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="20"
+                                                        height="20"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                                        <circle cx="12" cy="12" r="3" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
                                     {passwordErrors.newPassword && (
                                         <span className="text-sm text-red-500">
@@ -612,9 +798,7 @@ const Profile: React.FC = () => {
                                             canUnlinkTelegram
                                                 ? onTelegramUnbind
                                                 : () => {
-                                                      toast.error(
-                                                          "Чтобы отвязать Telegram, установите email, подтвердите его и задайте пароль.",
-                                                      );
+                                                      toast.error(unlinkErrorText);
                                                   }
                                         }
                                         className={`w-full px-6 py-2.5 rounded-[22px] border transition-all duration-300 ${
@@ -635,8 +819,7 @@ const Profile: React.FC = () => {
                                             className="text-sm text-center text-[rgba(var(--rgb-accent),0.7)] px-2"
                                             style={{ fontFamily: "Inter, sans-serif" }}
                                         >
-                                            Чтобы отвязать Telegram, установите email, подтвердите
-                                            его и задайте пароль.
+                                            {unlinkErrorText}
                                         </span>
                                     )}
                                 </div>
@@ -676,6 +859,103 @@ const Profile: React.FC = () => {
                     </div>
                 </div>
             </main>
+
+            {/* Модальное окно подтверждения OTP */}
+            {isOtpModalOpen &&
+                createPortal(
+                    <div
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 transition-opacity"
+                        onClick={() => setIsOtpModalOpen(false)}
+                    >
+                        <div
+                            className="bg-[var(--color-bg-card)] p-8 md:p-12 rounded-[40px] shadow-2xl max-w-md w-full border border-[rgba(var(--rgb-border),0.1)] flex flex-col items-center gap-6 relative transform transition-transform"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                className="absolute top-6 right-6 text-[rgba(var(--rgb-text-main),0.4)] hover:text-[var(--color-text-main)] transition-colors text-xl font-bold"
+                                onClick={() => setIsOtpModalOpen(false)}
+                            >
+                                ✕
+                            </button>
+
+                            <h3
+                                className="text-2xl md:text-3xl font-bold text-center"
+                                style={{
+                                    fontFamily: "Cormorant, serif",
+                                    color: "var(--color-text-main)",
+                                }}
+                            >
+                                Подтверждение
+                            </h3>
+                            <p
+                                className="text-center text-[rgba(var(--rgb-text-main),0.8)] text-base"
+                                style={{ fontFamily: "Inter, sans-serif" }}
+                            >
+                                Мы отправили код подтверждения{" "}
+                                {otpMethod === "telegram" ? "в ваш Telegram" : "на вашу почту"}.
+                            </p>
+
+                            <input
+                                type="text"
+                                maxLength={6}
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                                placeholder="000000"
+                                className="w-full text-center text-4xl tracking-[0.5em] font-mono bg-[var(--color-bg-main)] py-4 rounded-[22px] outline-none text-[var(--color-text-main)] border border-transparent focus:border-[var(--color-accent)] transition-colors"
+                            />
+
+                            <button
+                                onClick={confirmPasswordChange}
+                                className="w-full px-8 py-3 transition-opacity hover:opacity-90 bg-[var(--color-accent)] text-[var(--color-bg-card)] rounded-[25px] font-bold"
+                                style={{ fontFamily: "Cormorant, serif", fontSize: 18 }}
+                            >
+                                Подтвердить
+                            </button>
+
+                            {otpMethod === "telegram" && (
+                                <div
+                                    className="text-center w-full flex flex-col items-center mt-2"
+                                    style={{ fontFamily: "Inter, sans-serif" }}
+                                >
+                                    {otpTimer > 0 ? (
+                                        <span className="text-sm text-[rgba(var(--rgb-text-main),0.5)]">
+                                            Отправить код на почту можно через {otpTimer} сек.
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={requestFallbackEmailOtp}
+                                            className="text-sm font-medium text-[var(--color-accent)] hover:underline transition-all"
+                                        >
+                                            Отправить код на почту
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            {otpMethod === "email" && (
+                                <div
+                                    className="text-center w-full flex flex-col items-center mt-2"
+                                    style={{ fontFamily: "Inter, sans-serif" }}
+                                >
+                                    {otpTimer > 0 ? (
+                                        <span className="text-sm text-[rgba(var(--rgb-text-main),0.5)]">
+                                            Запросить новый код можно через {otpTimer} сек.
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={requestFallbackEmailOtp}
+                                            className="text-sm font-medium text-[var(--color-accent)] hover:underline transition-all"
+                                        >
+                                            Отправить код повторно
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>,
+                    document.body,
+                )}
 
             {/* Footer */}
             <footer

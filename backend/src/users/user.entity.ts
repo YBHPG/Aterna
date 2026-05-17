@@ -32,6 +32,12 @@ export class User {
     @Column({ nullable: true })
     telegramConnectionToken?: string;
 
+    @Column({ name: "password_change_otp", nullable: true })
+    passwordChangeOtp?: string;
+
+    @Column({ name: "password_change_otp_expires", type: "timestamp", nullable: true })
+    passwordChangeOtpExpires?: Date;
+
     @CreateDateColumn({ name: "created_at" })
     createdAt!: Date;
 

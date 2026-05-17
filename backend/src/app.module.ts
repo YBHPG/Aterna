@@ -17,6 +17,8 @@ import { TelegramModule } from "./auth/telegram.module";
     imports: [
         ConfigModule.forRoot({
             isGlobal: true,
+            envFilePath:
+                process.env.NODE_ENV === "production" ? ".env.production" : ".env.development",
             validationSchema: Joi.object({
                 POSTGRES_URI: Joi.string().required(),
                 MONGODB_URI: Joi.string().required(),

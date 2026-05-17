@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../utils/api";
@@ -15,10 +15,14 @@ const Register: React.FC = () => {
     const {
         register,
         handleSubmit,
+        watch,
         formState: { errors },
     } = useForm<RegisterFormInputs>();
     const navigate = useNavigate();
     const { login } = useAuth();
+    const [showPassword, setShowPassword] = useState(false);
+
+    const passwordValue = watch("password");
 
     const processDraftAndRedirect = async () => {
         const draft = localStorage.getItem("draft_message");
@@ -30,7 +34,7 @@ const Register: React.FC = () => {
             navigate("/");
         } else {
             toast.success("Регистрация успешна! Подтвердите почту для завершения.");
-            navigate("/dashboard");
+            navigate("/login");
         }
     };
 
@@ -46,7 +50,7 @@ const Register: React.FC = () => {
             const token =
                 response.data.token || response.data.access_token || response.data.accessToken;
             if (token) {
-                login(token); // сразу авторизуем после успешной регистрации (если backend возвращает токен)
+                // Не авторизуем пользователя сразу, так как требуется подтверждение почты
                 await processDraftAndRedirect();
             } else {
                 await processDraftAndRedirect(); // токена нет, выводим тост о подтверждении почты
@@ -83,10 +87,9 @@ const Register: React.FC = () => {
                 style={{ maxWidth: 1120 }}
             >
                 <div
-                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto"
+                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto rounded-[30px] md:rounded-[50px]"
                     style={{
                         backgroundColor: "var(--color-bg-card)",
-                        borderRadius: 50,
                         maxWidth: 450,
                         boxShadow:
                             "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
@@ -147,7 +150,7 @@ const Register: React.FC = () => {
                                         fontSize: 16,
                                         color: "var(--color-text-main)",
                                     }}
-                                    autoComplete="email"
+                                    autoComplete="username"
                                     {...register("email", { required: "Введите email" })}
                                 />
                             </div>
@@ -167,7 +170,7 @@ const Register: React.FC = () => {
                             <div className="flex items-center px-4 py-2.5 bg-[var(--color-bg-main)] rounded-[22px]">
                                 <input
                                     id="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     className="bg-transparent outline-none w-full"
                                     style={{
                                         fontFamily: "Cormorant, serif",
@@ -180,6 +183,47 @@ const Register: React.FC = () => {
                                         minLength: { value: 6, message: "Минимум 6 символов" },
                                     })}
                                 />
+                                {!!passwordValue && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="ml-2 text-[var(--color-text-main)] opacity-60 hover:opacity-100 transition-opacity focus:outline-none flex-shrink-0"
+                                    >
+                                        {showPassword ? (
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                                                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                                                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                                                <line x1="2" y1="2" x2="22" y2="22" />
+                                            </svg>
+                                        ) : (
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                             {errors.password && (
                                 <span className="text-sm text-red-500">

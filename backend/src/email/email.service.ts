@@ -57,6 +57,50 @@ export class EmailService {
         }
     }
 
+    async sendPasswordChangeOtp(to: string, otp: string): Promise<void> {
+        const apiToken = this.configService.get<string>("MAILOPOST_API_TOKEN");
+
+        if (!apiToken) {
+            throw new Error("MAILOPOST_API_TOKEN is not configured");
+        }
+
+        const fromEmail =
+            this.configService.get<string>("MAILOPOST_FROM_EMAIL") || "noreply@bulbadyshka.ru";
+
+        const htmlTemplate = `
+      <div style="font-family: Arial, sans-serif; color: #231001; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+        <h2 style="color: #231001; text-align: center;">Смена пароля</h2>
+        <p style="font-size: 16px; line-height: 1.5; text-align: center;">Ваш код подтверждения для смены пароля:</p>
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; text-align: center; margin: 30px 0; color: #4CAF50;">
+          ${otp}
+        </div>
+        <p style="font-size: 14px; line-height: 1.5; text-align: center; color: #666;">Код действителен в течение 10 минут. Если вы не запрашивали смену пароля, проигнорируйте это письмо.</p>
+      </div>
+    `;
+
+        const payload = {
+            from_email: fromEmail,
+            subject: "Код подтверждения для смены пароля",
+            to: to,
+            html: htmlTemplate,
+        };
+
+        try {
+            await firstValueFrom(
+                this.httpService.post("https://api.mailopost.ru/v1/email/messages", payload, {
+                    headers: {
+                        Authorization: `Bearer ${apiToken}`,
+                        "Content-Type": "application/json",
+                    },
+                }),
+            );
+            this.logger.log(`OTP email sent to ${to}`);
+        } catch (error: any) {
+            this.logger.error(`Failed to send OTP email to ${to}`);
+            throw error;
+        }
+    }
+
     async sendNotificationEmail(
         to: string,
         firstName: string | undefined,

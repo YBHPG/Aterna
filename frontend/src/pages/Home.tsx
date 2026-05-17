@@ -43,6 +43,7 @@ export default function Home() {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [calendarViewDate, setCalendarViewDate] = useState(new Date());
     const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
+    const [isMethodsInitialized, setIsMethodsInitialized] = useState(false);
     const [calendarPosition, setCalendarPosition] = useState<"top" | "bottom">("bottom");
     const calendarButtonRef = useRef<HTMLDivElement>(null);
     const [isMenuHovered, setIsMenuHovered] = useState(false);
@@ -91,11 +92,16 @@ export default function Home() {
         // игнорируем ошибку парсинга
     }
 
-    const currentUser = user?.user || user || decodedToken;
-    const userEmail = currentUser?.email || "";
-    const telegramName = currentUser?.telegramUsername || currentUser?.telegram?.username || "";
+    const currentUser = decodedToken || user?.user || user;
+    const rawEmail = currentUser?.email || "";
+    const isDummyEmail = rawEmail.endsWith("@telegram.local");
+    const userEmail = isDummyEmail ? "" : rawEmail;
     const hasEmail = !!userEmail;
-    const hasTelegram = !!telegramName;
+    const telegramUsername = currentUser?.telegramUsername || currentUser?.telegram?.username || "";
+    const telegramName = telegramUsername
+        ? `@${telegramUsername}`
+        : currentUser?.firstName || "Подключен";
+    const hasTelegram = !!(currentUser?.telegramId || telegramUsername);
     const isMulti = hasEmail && hasTelegram;
     const displayName =
         currentUser?.firstName ||
@@ -103,7 +109,7 @@ export default function Home() {
         currentUser?.telegramUsername ||
         currentUser?.telegram?.username ||
         currentUser?.email ||
-        "Дашборд";
+        "Список писем";
 
     // Восстановление черновика из localStorage
     useEffect(() => {
@@ -143,11 +149,14 @@ export default function Home() {
 
     // Инициализация выбранных методов получения
     useEffect(() => {
-        const methods = [];
-        if (hasEmail) methods.push("email");
-        if (hasTelegram) methods.push("telegram");
-        setSelectedMethods(methods);
-    }, [hasEmail, hasTelegram]);
+        if (!isMethodsInitialized && (hasEmail || hasTelegram)) {
+            const methods = [];
+            if (hasEmail) methods.push("email");
+            if (hasTelegram) methods.push("telegram");
+            setSelectedMethods(methods);
+            setIsMethodsInitialized(true);
+        }
+    }, [hasEmail, hasTelegram, isMethodsInitialized]);
 
     // Отслеживаем изменения "на лету" и сохраняем черновик
     useEffect(() => {
@@ -379,7 +388,7 @@ export default function Home() {
                     >
                         <Link
                             to="/profile"
-                            className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[200px] sm:max-w-[250px] truncate"
+                            className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[150px] sm:max-w-[250px] truncate"
                             style={{
                                 fontFamily: "Cormorant, serif",
                                 fontSize: nameFontSize,
@@ -402,7 +411,7 @@ export default function Home() {
                                     textDecoration: "none",
                                 }}
                             >
-                                Дашборд
+                                Список писем
                             </Link>
                             <button
                                 type="button"
@@ -447,10 +456,9 @@ export default function Home() {
                 <form
                     onSubmit={handleSubmit(onSubmit)}
                     autoComplete="off"
-                    className="w-full px-6 py-6 md:px-12 md:py-10 flex flex-col"
+                    className="w-full px-6 py-6 md:px-12 md:py-10 flex flex-col rounded-[30px] md:rounded-[50px]"
                     style={{
                         backgroundColor: "var(--color-bg-card)",
-                        borderRadius: 50,
                         boxShadow:
                             "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
                     }}
@@ -470,10 +478,9 @@ export default function Home() {
 
                     {/* Letter textarea */}
                     <div
-                        className="w-full px-6 py-4 md:px-[50px] md:py-[30px] mb-6 md:mb-8"
+                        className="w-full px-6 py-4 md:px-[50px] md:py-[30px] mb-6 md:mb-8 rounded-[20px] md:rounded-[30px]"
                         style={{
                             backgroundColor: "var(--color-bg-main)",
-                            borderRadius: 30,
                         }}
                     >
                         <textarea
@@ -507,9 +514,9 @@ export default function Home() {
 
                     {/* Bottom row: email + date selector + submit button */}
                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 md:gap-8 shrink-0 w-full">
-                        <div className="flex flex-wrap gap-4 md:gap-8">
+                        <div className="flex flex-wrap gap-6 md:gap-8 w-full xl:w-auto">
                             {/* Email field */}
-                            <div className="flex flex-col gap-2 relative">
+                            <div className="flex flex-col gap-2 relative w-full sm:w-auto sm:min-w-[300px] flex-1">
                                 <label
                                     className="text-base font-medium"
                                     style={{
@@ -527,7 +534,6 @@ export default function Home() {
                                     style={{
                                         backgroundColor: "var(--color-bg-main)",
                                         borderRadius: 22,
-                                        minWidth: 350,
                                         cursor: isMulti
                                             ? "pointer"
                                             : !isAuthenticated
@@ -668,7 +674,7 @@ export default function Home() {
                             </div>
 
                             {/* Date selector */}
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 w-full md:w-auto">
                                 <span
                                     className="text-base font-medium"
                                     style={{
@@ -865,7 +871,7 @@ export default function Home() {
                             <button
                                 type="submit"
                                 disabled={!isFormReady}
-                                className={`px-8 py-3 transition-opacity ${isFormReady ? "hover:opacity-90" : "opacity-50"}`}
+                                className={`px-8 py-3 transition-opacity w-full sm:w-auto ${isFormReady ? "hover:opacity-90" : "opacity-50"}`}
                                 style={{
                                     backgroundColor: "var(--color-accent)",
                                     color: "var(--color-bg-card)",

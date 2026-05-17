@@ -112,7 +112,7 @@ const ViewMessage: React.FC = () => {
                         textDecoration: "none",
                     }}
                 >
-                    Вернуться в Дашборд
+                    Вернуться к письмам
                 </Link>
             </div>
         );
@@ -217,7 +217,7 @@ const ViewMessage: React.FC = () => {
                 >
                     <Link
                         to="/profile"
-                        className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[200px] sm:max-w-[250px] truncate"
+                        className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[150px] sm:max-w-[250px] truncate"
                         style={{
                             fontFamily: "Cormorant, serif",
                             fontSize: nameFontSize,
@@ -239,7 +239,7 @@ const ViewMessage: React.FC = () => {
                                 textDecoration: "none",
                             }}
                         >
-                            Дашборд
+                            Список писем
                         </Link>
                         <button
                             type="button"
@@ -267,10 +267,9 @@ const ViewMessage: React.FC = () => {
                 style={{ maxWidth: 1120 }}
             >
                 <div
-                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto"
+                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto rounded-[30px] md:rounded-[50px]"
                     style={{
                         backgroundColor: "var(--color-bg-card)",
-                        borderRadius: 50,
                         maxWidth: 800,
                         boxShadow:
                             "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
@@ -331,8 +330,8 @@ const ViewMessage: React.FC = () => {
                     {/* Content Section */}
                     {message.isLocked ? (
                         <div
-                            className="w-full flex flex-col items-center justify-center px-6 py-12 md:py-16 mb-8 text-center"
-                            style={{ backgroundColor: "var(--color-bg-main)", borderRadius: 30 }}
+                            className="w-full flex flex-col items-center justify-center px-6 py-12 md:py-16 mb-8 text-center rounded-[20px] md:rounded-[30px]"
+                            style={{ backgroundColor: "var(--color-bg-main)" }}
                         >
                             <div className="mb-4 text-5xl opacity-80">🔏</div>
                             <h3
@@ -357,10 +356,9 @@ const ViewMessage: React.FC = () => {
                     ) : isEditable ? (
                         <div className="w-full flex flex-col mb-8">
                             <div
-                                className="w-full px-6 py-4 md:px-[50px] md:py-[30px]"
+                                className="w-full px-6 py-4 md:px-[50px] md:py-[30px] rounded-[20px] md:rounded-[30px]"
                                 style={{
                                     backgroundColor: "var(--color-bg-main)",
-                                    borderRadius: 30,
                                 }}
                             >
                                 <textarea
@@ -405,8 +403,8 @@ const ViewMessage: React.FC = () => {
                         </div>
                     ) : (
                         <div
-                            className="w-full px-6 py-4 md:px-[50px] md:py-[30px] mb-8"
-                            style={{ backgroundColor: "var(--color-bg-main)", borderRadius: 30 }}
+                            className="w-full px-6 py-4 md:px-[50px] md:py-[30px] mb-8 rounded-[20px] md:rounded-[30px]"
+                            style={{ backgroundColor: "var(--color-bg-main)" }}
                         >
                             <p
                                 className="w-full bg-transparent outline-none whitespace-pre-wrap"
@@ -435,7 +433,7 @@ const ViewMessage: React.FC = () => {
                                 textDecoration: "none",
                             }}
                         >
-                            Вернуться в Дашборд
+                            Вернуться к письмам
                         </Link>
                     </div>
                 </div>

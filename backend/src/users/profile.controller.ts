@@ -21,6 +21,14 @@ export class ProfileController {
         return this.profileService.updateName(user.userId, dto);
     }
 
+    @Post("password/otp")
+    public async requestPasswordOtp(
+        @CurrentUser() user: any,
+        @Body() body: { fallbackToEmail?: boolean },
+    ) {
+        return this.profileService.requestPasswordOtp(user.userId, body.fallbackToEmail);
+    }
+
     @Patch("password")
     public async updatePassword(@CurrentUser() user: any, @Body() dto: UpdatePasswordDto) {
         return this.profileService.updatePassword(user.userId, dto);

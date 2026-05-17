@@ -179,7 +179,7 @@ export const Dashboard: React.FC = () => {
         // игнорируем ошибку парсинга
     }
 
-    const currentUser = user?.user || user || decodedToken;
+    const currentUser = decodedToken || user?.user || user;
     const displayName =
         currentUser?.firstName ||
         currentUser?.name ||
@@ -259,7 +259,7 @@ export const Dashboard: React.FC = () => {
                                     textDecoration: "none",
                                 }}
                             >
-                                Дашборд
+                                Список писем
                             </Link>
                             <button
                                 type="button"

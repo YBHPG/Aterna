@@ -8,6 +8,7 @@ import { UpdatePasswordDto } from "./dto/update-password.dto";
 import { UpdateEmailDto } from "./dto/update-email.dto";
 import { TelegramAuthDto } from "../auth/dto/telegram-auth.dto";
 import { UpdateNameDto } from "./dto/update-name.dto";
+import { TelegramService } from "../auth/telegram.service";
 
 @Injectable()
 export class ProfileService {
@@ -15,6 +16,7 @@ export class ProfileService {
         private readonly usersService: UsersService,
         private readonly emailService: EmailService,
         private readonly authService: AuthService,
+        private readonly telegramService: TelegramService,
     ) {}
 
     public async getMe(userId: string) {
@@ -37,9 +39,53 @@ export class ProfileService {
         return this.authService.login(user);
     }
 
-    public async updatePassword(userId: string, dto: UpdatePasswordDto) {
+    public async requestPasswordOtp(userId: string, fallbackToEmail: boolean = false) {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException("Пользователь не найден");
+
+        // Генерируем 6-значный код
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Сохраняем код и время жизни (10 минут).
+        // ВНИМАНИЕ: Вам нужно добавить эти поля в сущность User (user.entity.ts)!
+        (user as any).passwordChangeOtp = otp;
+        (user as any).passwordChangeOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await this.usersService.save(user);
+
+        let sentVia = "email";
+
+        if (user.telegramId && !fallbackToEmail) {
+            try {
+                // ВНИМАНИЕ: Убедитесь, что у вас есть метод sendMessage в TelegramService
+                await this.telegramService.sendMessage(
+                    user.telegramId,
+                    `Ваш код для смены пароля: *${otp}*`,
+                );
+                sentVia = "telegram";
+            } catch (e) {
+                // Фоллбэк на почту, если Telegram недоступен
+                await (this.emailService as any).sendPasswordChangeOtp(user.email, otp);
+            }
+        } else {
+            await (this.emailService as any).sendPasswordChangeOtp(user.email, otp);
+        }
+
+        return { sentVia };
+    }
+
+    public async updatePassword(userId: string, dto: UpdatePasswordDto & { otp?: string }) {
+        const user = await this.usersService.findById(userId);
+        if (!user) throw new UnauthorizedException("Пользователь не найден");
+
+        if (!(user as any).passwordChangeOtp || (user as any).passwordChangeOtp !== dto.otp) {
+            throw new BadRequestException("Неверный код подтверждения");
+        }
+        if (
+            (user as any).passwordChangeOtpExpires &&
+            new Date() > (user as any).passwordChangeOtpExpires
+        ) {
+            throw new BadRequestException("Время действия кода истекло");
+        }
 
         if (user.passwordHash) {
             if (!dto.oldPassword) throw new BadRequestException("Введите текущий пароль");
@@ -49,6 +95,8 @@ export class ProfileService {
 
         const saltRounds = 10;
         user.passwordHash = await bcrypt.hash(dto.newPassword, saltRounds);
+        (user as any).passwordChangeOtp = null;
+        (user as any).passwordChangeOtpExpires = null;
         await this.usersService.save(user);
 
         return this.authService.login(user);
