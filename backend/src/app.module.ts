@@ -11,6 +11,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { BullModule } from "@nestjs/bullmq";
 import { ProfileModule } from "./users/profile.module";
+import { TelegramModule } from "./auth/telegram.module";
 
 @Module({
     imports: [
@@ -47,6 +48,7 @@ import { ProfileModule } from "./users/profile.module";
         CryptoModule,
         MessagesModule,
         ProfileModule,
+        TelegramModule,
     ],
     controllers: [],
     providers: [

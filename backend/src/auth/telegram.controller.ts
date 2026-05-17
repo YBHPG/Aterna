@@ -9,6 +9,7 @@ export class TelegramController {
     @Public() // Вебхук должен быть доступен без JWT-токена
     @Post("webhook")
     async handleWebhook(@Body() update: any) {
+        console.log("[Telegram Webhook] Получен апдейт:", JSON.stringify(update, null, 2));
         await this.telegramService.handleWebhook(update);
         return "OK"; // Всегда отвечаем 200 OK, чтобы Telegram не повторял запросы
     }
