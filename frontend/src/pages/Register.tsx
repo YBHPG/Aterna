@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../utils/api";
-import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 interface RegisterFormInputs {
@@ -19,7 +18,6 @@ const Register: React.FC = () => {
         formState: { errors },
     } = useForm<RegisterFormInputs>();
     const navigate = useNavigate();
-    const { login } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
 
     const passwordValue = watch("password");

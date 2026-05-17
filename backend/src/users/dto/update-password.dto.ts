@@ -1,4 +1,4 @@
-import { IsString, MinLength, IsOptional } from "class-validator";
+import { IsOptional, IsString, MinLength } from "class-validator";
 
 export class UpdatePasswordDto {
     @IsOptional()
@@ -8,4 +8,9 @@ export class UpdatePasswordDto {
     @IsString()
     @MinLength(6, { message: "Пароль должен содержать минимум 6 символов" })
     newPassword!: string;
+
+    // Добавляем разрешение на получение OTP-кода
+    @IsOptional()
+    @IsString()
+    otp?: string;
 }
