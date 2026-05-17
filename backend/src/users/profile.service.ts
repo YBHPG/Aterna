@@ -17,6 +17,12 @@ export class ProfileService {
         private readonly authService: AuthService,
     ) {}
 
+    public async getMe(userId: string) {
+        const user = await this.usersService.findById(userId);
+        if (!user) throw new UnauthorizedException("Пользователь не найден");
+        return this.authService.login(user);
+    }
+
     public async updateName(userId: string, dto: UpdateNameDto) {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException("Пользователь не найден");

@@ -10,6 +10,11 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 export class ProfileController {
     constructor(private readonly profileService: ProfileService) {}
 
+    @Get("me")
+    public async getMe(@CurrentUser() user: any) {
+        return this.profileService.getMe(user.userId);
+    }
+
     @Patch("name")
     public async updateName(@CurrentUser() user: any, @Body() dto: UpdateNameDto) {
         // Сервис обновит имя и вернет объект { access_token: "..." }

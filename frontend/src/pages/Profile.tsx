@@ -9,12 +9,11 @@ const Profile: React.FC = () => {
     const { logout, user } = useAuth() as any;
     const navigate = useNavigate();
     const [isMenuHovered, setIsMenuHovered] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
 
-    // Получение данных пользователя для хедера и дефолтных значений
-    let decodedToken: any = null;
-    try {
-        const token = localStorage.getItem("token") || localStorage.getItem("access_token");
-        if (token) {
+    // Безопасное декодирование JWT токена
+    const decodeJWT = (token: string) => {
+        try {
             const base64Url = token.split(".")[1];
             const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
             const binString = atob(base64);
@@ -22,13 +21,60 @@ const Profile: React.FC = () => {
             for (let i = 0; i < binString.length; i++) {
                 bytes[i] = binString.charCodeAt(i);
             }
-            decodedToken = JSON.parse(new TextDecoder().decode(bytes));
+            return JSON.parse(new TextDecoder().decode(bytes));
+        } catch (e) {
+            return null;
         }
-    } catch (e) {
-        // игнорируем ошибку парсинга
-    }
+    };
 
-    const currentUser = user?.user || user || decodedToken;
+    const rawToken = localStorage.getItem("token") || localStorage.getItem("access_token");
+    const decodedToken = rawToken ? decodeJWT(rawToken) : null;
+
+    // Автоматическое обновление данных профиля (полезно при привязке Telegram через вебхук)
+    useEffect(() => {
+        let isMounted = true;
+        const fetchFreshToken = async () => {
+            try {
+                const response = await api.get("/profile/me");
+                const newToken = response.data?.access_token || response.data?.token;
+                const currentToken =
+                    localStorage.getItem("access_token") || localStorage.getItem("token");
+
+                if (newToken && currentToken) {
+                    const newPayload = decodeJWT(newToken);
+                    const currentPayload = decodeJWT(currentToken);
+
+                    if (newPayload && currentPayload) {
+                        const isChanged =
+                            newPayload.telegramId !== currentPayload.telegramId ||
+                            newPayload.isEmailConfirmed !== currentPayload.isEmailConfirmed ||
+                            newPayload.hasPassword !== currentPayload.hasPassword ||
+                            newPayload.email !== currentPayload.email ||
+                            newPayload.firstName !== currentPayload.firstName;
+
+                        if (isChanged) {
+                            localStorage.setItem("access_token", newToken);
+                            localStorage.setItem("token", newToken);
+                            if (isMounted) setRefreshKey((prev) => prev + 1); // Форсируем перерисовку UI
+                        }
+                    }
+                }
+            } catch (error) {
+                // Игнорируем ошибки сети при фоновом опросе
+            }
+        };
+
+        fetchFreshToken();
+        const intervalId = setInterval(fetchFreshToken, 3000); // Опрашиваем каждые 3 секунды
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, []);
+
+    // Предпочитаем свежие данные из токена напрямую, иначе фоллбэк на контекст
+    const currentUser = decodedToken || user?.user || user;
     const displayName =
         currentUser?.firstName ||
         currentUser?.name ||
@@ -127,11 +173,13 @@ const Profile: React.FC = () => {
     };
 
     const isDummyEmail = currentUser?.email?.endsWith("@telegram.local");
-    // Если в старом токене нет полей, предполагаем, что у пользователей с обычной почтой есть и пароль, и подтверждение
-    const hasPassword = currentUser?.hasPassword ?? !isDummyEmail;
-    const isEmailConfirmed = currentUser?.isEmailConfirmed ?? !isDummyEmail;
+    const hasEmail = !!currentUser?.email && !isDummyEmail;
+    const hasPassword = currentUser?.hasPassword !== undefined ? currentUser.hasPassword : hasEmail;
+    const isEmailConfirmed =
+        currentUser?.isEmailConfirmed !== undefined ? currentUser.isEmailConfirmed : true;
 
-    const canUnlinkTelegram = !isDummyEmail && hasPassword && isEmailConfirmed;
+    // Возвращаем строгую проверку подтверждения почты
+    const canUnlinkTelegram = hasEmail && hasPassword && isEmailConfirmed;
     const isTelegramLinked = !!currentUser?.telegramId;
 
     const onTelegramUnbind = async () => {
@@ -565,7 +613,7 @@ const Profile: React.FC = () => {
                                                 ? onTelegramUnbind
                                                 : () => {
                                                       toast.error(
-                                                          "Чтобы отвязать Telegram, установите настоящий email, подтвердите его и задайте пароль.",
+                                                          "Чтобы отвязать Telegram, установите email, подтвердите его и задайте пароль.",
                                                       );
                                                   }
                                         }
@@ -587,8 +635,8 @@ const Profile: React.FC = () => {
                                             className="text-sm text-center text-[rgba(var(--rgb-accent),0.7)] px-2"
                                             style={{ fontFamily: "Inter, sans-serif" }}
                                         >
-                                            Чтобы отвязать Telegram, установите настоящий email,
-                                            подтвердите его и задайте пароль.
+                                            Чтобы отвязать Telegram, установите email, подтвердите
+                                            его и задайте пароль.
                                         </span>
                                     )}
                                 </div>
