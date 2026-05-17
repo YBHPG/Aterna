@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../utils/api";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface MessageData {
     id: string;
@@ -19,6 +21,10 @@ const ViewMessage: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [editContent, setEditContent] = useState<string>("");
     const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [isMenuHovered, setIsMenuHovered] = useState(false);
+    const navigate = useNavigate();
+    const { logout, user } = useAuth() as any;
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         const fetchMessage = async () => {
@@ -46,12 +52,66 @@ const ViewMessage: React.FC = () => {
         }
     }, [id]);
 
-    if (loading) return <div className="py-8 text-center text-gray-500">Загрузка письма...</div>;
+    // Авто-изменение высоты текстового поля при редактировании
+    useEffect(() => {
+        const el = textareaRef.current;
+        if (el) {
+            // 1. Запоминаем текущую высоту
+            const currentHeight = el.style.height;
+
+            // 2. Отключаем анимацию и ставим auto для правильного пересчета
+            el.style.transition = "none";
+            el.style.height = "auto";
+            const targetHeight = el.scrollHeight;
+
+            // 3. Возвращаем старую высоту и делаем принудительный reflow браузера
+            el.style.height = currentHeight || `${targetHeight}px`;
+            void el.offsetHeight;
+
+            // 4. Включаем анимацию и задаем целевую высоту
+            el.style.transition = "height 0.15s ease-out";
+            el.style.height = `${targetHeight}px`;
+        }
+    }, [editContent]);
+
+    if (loading) {
+        return (
+            <div
+                className="min-h-screen w-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-bg-main)", fontFamily: "Inter, sans-serif" }}
+            >
+                <div
+                    className="text-2xl"
+                    style={{ fontFamily: "Cormorant, serif", color: "var(--color-text-main)" }}
+                >
+                    Загрузка письма...
+                </div>
+            </div>
+        );
+    }
+
     if (error)
         return (
-            <div className="max-w-2xl px-4 py-8 mx-auto text-center">
-                <h2 className="mb-4 text-2xl font-bold text-red-600">{error}</h2>
-                <Link to="/dashboard" className="text-blue-600 hover:underline">
+            <div
+                className="min-h-screen w-full flex items-center justify-center flex-col gap-6"
+                style={{ backgroundColor: "var(--color-bg-main)", fontFamily: "Inter, sans-serif" }}
+            >
+                <h2
+                    className="text-2xl font-bold text-red-600 text-center"
+                    style={{ fontFamily: "Cormorant, serif" }}
+                >
+                    {error}
+                </h2>
+                <Link
+                    to="/dashboard"
+                    className="px-8 py-3 rounded-[25px] border transition-all duration-300 bg-transparent text-[var(--color-border)] border-[var(--color-border)] hover:bg-[rgba(var(--rgb-border),0.1)] text-center"
+                    style={{
+                        fontFamily: "Cormorant, serif",
+                        fontWeight: 600,
+                        fontSize: 16,
+                        textDecoration: "none",
+                    }}
+                >
                     Вернуться в Дашборд
                 </Link>
             </div>
@@ -69,86 +129,335 @@ const ViewMessage: React.FC = () => {
         try {
             setIsSaving(true);
             await api.patch(`/messages/${id}`, { content: editContent });
-            alert("Изменения успешно сохранены!");
-            setMessage({ ...message, content: editContent });
+            toast.success("Изменения успешно сохранены!");
+            navigate("/dashboard");
         } catch (err) {
             console.error("Ошибка при сохранении письма:", err);
-            alert("Не удалось сохранить изменения.");
+            toast.error("Не удалось сохранить изменения.");
         } finally {
             setIsSaving(false);
         }
     };
 
+    // Получение данных пользователя для хедера
+    let decodedToken: any = null;
+    try {
+        const token = localStorage.getItem("token") || localStorage.getItem("access_token");
+        if (token) {
+            const base64Url = token.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const binString = atob(base64);
+            const bytes = new Uint8Array(binString.length);
+            for (let i = 0; i < binString.length; i++) {
+                bytes[i] = binString.charCodeAt(i);
+            }
+            decodedToken = JSON.parse(new TextDecoder().decode(bytes));
+        }
+    } catch (e) {}
+
+    const currentUser = user?.user || user || decodedToken;
+    const displayName =
+        currentUser?.firstName ||
+        currentUser?.name ||
+        currentUser?.telegramUsername ||
+        currentUser?.telegram?.username ||
+        currentUser?.email ||
+        "Профиль";
+    const nameLen = displayName.length;
+    const nameFontSize = nameLen > 22 ? 14 : 16;
+
+    // Форматирование дат
+    const createdAtDate = new Date(message.createdAt);
+    const triggerDateObj = new Date(message.triggerDate);
+    const titleDate = createdAtDate.toLocaleDateString("ru-RU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+    const startDate = createdAtDate.toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+    const endDate = triggerDateObj.toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+
     return (
-        <div className="max-w-3xl px-4 py-8 mx-auto">
-            <div className="p-8 bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="flex items-center justify-between pb-6 mb-6 border-b border-gray-100">
-                    <h2 className="text-3xl font-bold text-gray-800">Ваше письмо в будущее</h2>
-                    <span
-                        className={`px-3 py-1 text-sm font-semibold rounded-full ${message.isLocked ? "text-yellow-800 bg-yellow-100" : "text-green-800 bg-green-100"}`}
+        <div
+            className="min-h-screen w-full flex flex-col"
+            style={{ backgroundColor: "var(--color-bg-main)", fontFamily: "Inter, sans-serif" }}
+        >
+            {/* Header */}
+            <header className="flex items-center justify-center gap-4 pt-6 pb-4 relative z-50 shrink-0">
+                <Link
+                    to="/"
+                    className="flex items-center shrink-0 hover:opacity-80 transition-opacity"
+                >
+                    <img
+                        src="/logo.svg"
+                        alt="Logo"
+                        className="h-10 w-12 object-contain"
+                        style={{ filter: "var(--logo-filter)" }}
+                    />
+                </Link>
+                <img
+                    src="/arrow.svg"
+                    alt="Arrow"
+                    className="h-4 object-contain"
+                    style={{ width: 94, filter: "var(--logo-filter)" }}
+                />
+
+                <div
+                    className="relative inline-flex flex-col items-center group font-serif w-max cursor-pointer"
+                    onMouseEnter={() => setIsMenuHovered(true)}
+                    onMouseLeave={() => setIsMenuHovered(false)}
+                >
+                    <Link
+                        to="/profile"
+                        className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[200px] sm:max-w-[250px] truncate"
+                        style={{
+                            fontFamily: "Cormorant, serif",
+                            fontSize: nameFontSize,
+                            textDecoration: "none",
+                            lineHeight: "1.2",
+                        }}
+                        title={displayName}
                     >
-                        {message.isLocked ? "Запечатано" : "Успешно расшифровано"}
-                    </span>
-                </div>
-
-                <div className="mb-6 space-y-2 text-gray-600">
-                    <p>
-                        <span className="font-semibold text-gray-700">Получатель:</span>{" "}
-                        {message.recipientEmail}
-                    </p>
-                    <p>
-                        <span className="font-semibold text-gray-700">Запланировано на:</span>{" "}
-                        {new Date(message.triggerDate).toLocaleString()}
-                    </p>
-                    <p>
-                        <span className="font-semibold text-gray-700">Дата создания:</span>{" "}
-                        {new Date(message.createdAt).toLocaleString()}
-                    </p>
-                </div>
-
-                {message.isLocked ? (
-                    <div className="p-12 text-center border-2 border-gray-300 border-dashed rounded-lg bg-gray-50">
-                        <div className="mb-4 text-5xl">🔏</div>
-                        <h3 className="mb-2 text-xl font-bold text-gray-700">Письмо запечатано</h3>
-                        <p className="text-gray-500">
-                            Вы сможете прочитать его после доставки или если отмените отправку.
-                        </p>
+                        {displayName}
+                    </Link>
+                    <div className="absolute top-0 left-0 w-full bg-[var(--color-dropdown-bg)] rounded-[2rem] flex flex-col items-center justify-end -z-10 h-[52px] opacity-0 pointer-events-none group-hover:h-[116px] group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 ease-in-out overflow-hidden shadow-sm pb-[12px]">
+                        <Link
+                            to="/dashboard"
+                            className="text-[var(--color-border)] w-full text-center transition-colors hover:text-[var(--color-error-hover)] mb-2"
+                            style={{
+                                fontFamily: "Cormorant, serif",
+                                fontSize: 16,
+                                fontWeight: 600,
+                                textDecoration: "none",
+                            }}
+                        >
+                            Дашборд
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsMenuHovered(false);
+                                if (logout) logout();
+                                navigate("/");
+                            }}
+                            className="text-[var(--color-error)] w-full text-center transition-colors hover:text-[var(--color-error-hover)]"
+                            style={{
+                                fontFamily: "Cormorant, serif",
+                                fontSize: 16,
+                                fontWeight: 600,
+                            }}
+                        >
+                            Выйти
+                        </button>
                     </div>
-                ) : isEditable ? (
-                    <div className="p-6 shadow-inner bg-indigo-50 rounded-lg border-l-4 border-indigo-500">
-                        <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            rows={6}
-                            className="w-full px-3 py-2 text-gray-800 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <div className="mt-4 text-right">
-                            <button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="px-4 py-2 font-medium text-white transition-colors bg-green-600 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
-                            >
-                                {isSaving ? "Сохранение..." : "Сохранить изменения"}
-                            </button>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main
+                className={`mx-auto px-4 flex-1 w-full transition-all duration-300 ease-in-out ${isMenuHovered ? "mt-[84px] md:mt-[114px]" : "mt-[20px] md:mt-[50px]"}`}
+                style={{ maxWidth: 1120 }}
+            >
+                <div
+                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto"
+                    style={{
+                        backgroundColor: "var(--color-bg-card)",
+                        borderRadius: 50,
+                        maxWidth: 800,
+                        boxShadow:
+                            "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
+                    }}
+                >
+                    {/* Header Info */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+                        <h2
+                            className="text-3xl md:text-4xl font-bold"
+                            style={{
+                                fontFamily: "Cormorant, serif",
+                                color: "var(--color-text-main)",
+                            }}
+                        >
+                            Письмо от {titleDate}
+                        </h2>
+                        <div
+                            className="flex items-center space-x-3 shrink-0"
+                            style={{
+                                fontFamily: "Cormorant, serif",
+                                fontWeight: 500,
+                                fontSize: 18,
+                                color: "var(--color-text-main)",
+                            }}
+                        >
+                            <span>{startDate}</span>
+                            <span style={{ fontFamily: "sans-serif", fontSize: 16 }}>→</span>
+                            <span>{endDate}</span>
                         </div>
                     </div>
-                ) : (
-                    <div className="p-6 shadow-inner bg-indigo-50 rounded-lg border-l-4 border-indigo-500">
-                        <p className="font-serif text-lg leading-relaxed text-gray-800 whitespace-pre-wrap">
-                            {message.content}
-                        </p>
-                    </div>
-                )}
 
-                <div className="mt-8 text-center">
-                    <Link
-                        to="/dashboard"
-                        className="inline-block px-6 py-2 text-white transition-colors bg-indigo-600 rounded hover:bg-indigo-700"
-                    >
-                        Вернуться в Дашборд
+                    {/* Recipient */}
+                    <div className="flex flex-col gap-2 mb-8">
+                        <span
+                            className="font-medium"
+                            style={{
+                                fontFamily: "Inter, sans-serif",
+                                fontSize: 16,
+                                color: "var(--color-text-main)",
+                            }}
+                        >
+                            Адрес получателя
+                        </span>
+                        <span
+                            className="truncate"
+                            style={{
+                                fontFamily: "Cormorant, serif",
+                                fontWeight: 400,
+                                fontSize: 18,
+                                color: "var(--color-text-main)",
+                                letterSpacing: "0.6px",
+                            }}
+                        >
+                            {message.recipientEmail}
+                        </span>
+                    </div>
+
+                    {/* Content Section */}
+                    {message.isLocked ? (
+                        <div
+                            className="w-full flex flex-col items-center justify-center px-6 py-12 md:py-16 mb-8 text-center"
+                            style={{ backgroundColor: "var(--color-bg-main)", borderRadius: 30 }}
+                        >
+                            <div className="mb-4 text-5xl opacity-80">🔏</div>
+                            <h3
+                                className="mb-2 text-2xl font-bold"
+                                style={{
+                                    fontFamily: "Cormorant, serif",
+                                    color: "var(--color-text-main)",
+                                }}
+                            >
+                                Письмо запечатано
+                            </h3>
+                            <p
+                                style={{
+                                    fontFamily: "Inter, sans-serif",
+                                    fontSize: 16,
+                                    color: "var(--color-accent)",
+                                }}
+                            >
+                                Вы сможете прочитать его после доставки или если отмените отправку.
+                            </p>
+                        </div>
+                    ) : isEditable ? (
+                        <div className="w-full flex flex-col mb-8">
+                            <div
+                                className="w-full px-6 py-4 md:px-[50px] md:py-[30px]"
+                                style={{
+                                    backgroundColor: "var(--color-bg-main)",
+                                    borderRadius: 30,
+                                }}
+                            >
+                                <textarea
+                                    ref={textareaRef}
+                                    value={editContent}
+                                    onChange={(e) => setEditContent(e.target.value)}
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    spellCheck="false"
+                                    className="w-full bg-transparent outline-none resize-none"
+                                    style={{
+                                        fontFamily: "Cormorant, serif",
+                                        fontWeight: 500,
+                                        fontSize: 18,
+                                        lineHeight: "1.6",
+                                        color: "var(--color-text-main)",
+                                        overflow: "hidden",
+                                        transition: "height 0.15s ease-out",
+                                    }}
+                                    rows={3}
+                                />
+                            </div>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isSaving}
+                                    className={`px-8 py-3 transition-opacity ${isSaving ? "opacity-50" : "hover:opacity-90"}`}
+                                    style={{
+                                        backgroundColor: "var(--color-accent)",
+                                        color: "var(--color-bg-card)",
+                                        borderRadius: 25,
+                                        fontFamily: "Cormorant, serif",
+                                        fontWeight: 700,
+                                        fontSize: 16,
+                                        border: "none",
+                                        cursor: isSaving ? "not-allowed" : "pointer",
+                                    }}
+                                >
+                                    {isSaving ? "Сохранение..." : "Сохранить изменения"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            className="w-full px-6 py-4 md:px-[50px] md:py-[30px] mb-8"
+                            style={{ backgroundColor: "var(--color-bg-main)", borderRadius: 30 }}
+                        >
+                            <p
+                                className="w-full bg-transparent outline-none whitespace-pre-wrap"
+                                style={{
+                                    fontFamily: "Cormorant, serif",
+                                    fontWeight: 500,
+                                    fontSize: 18,
+                                    lineHeight: "1.6",
+                                    color: "var(--color-text-main)",
+                                }}
+                            >
+                                {message.content}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Back Button */}
+                    <div className="flex justify-center mt-2">
+                        <Link
+                            to="/dashboard"
+                            className="px-8 py-3 rounded-[25px] border transition-all duration-300 bg-transparent text-[var(--color-border)] border-[var(--color-border)] hover:bg-[rgba(var(--rgb-border),0.1)] text-center"
+                            style={{
+                                fontFamily: "Cormorant, serif",
+                                fontWeight: 600,
+                                fontSize: 16,
+                                textDecoration: "none",
+                            }}
+                        >
+                            Вернуться в Дашборд
+                        </Link>
+                    </div>
+                </div>
+            </main>
+
+            {/* Footer */}
+            <footer
+                className="w-full py-8 mt-10 flex flex-col items-center justify-center gap-2 text-[rgba(var(--rgb-accent),0.7)] shrink-0"
+                style={{ fontFamily: "Inter, sans-serif" }}
+            >
+                <div className="text-sm font-medium">
+                    © {new Date().getFullYear()} Aterna. Защищенные послания в будущее.
+                </div>
+                <div className="text-xs flex gap-4 mt-1">
+                    <Link to="#" className="hover:text-[var(--color-accent)] transition-colors">
+                        Политика конфиденциальности
+                    </Link>
+                    <Link to="#" className="hover:text-[var(--color-accent)] transition-colors">
+                        Технологии безопасности
                     </Link>
                 </div>
-            </div>
+            </footer>
         </div>
     );
 };

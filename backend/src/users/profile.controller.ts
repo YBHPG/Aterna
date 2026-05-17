@@ -3,16 +3,22 @@ import { ProfileService } from "./profile.service";
 import { UpdatePasswordDto } from "./dto/update-password.dto";
 import { UpdateEmailDto } from "./dto/update-email.dto";
 import { TelegramAuthDto } from "../auth/dto/telegram-auth.dto";
+import { UpdateNameDto } from "./dto/update-name.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 
 @Controller("profile")
 export class ProfileController {
     constructor(private readonly profileService: ProfileService) {}
 
+    @Patch("name")
+    public async updateName(@CurrentUser() user: any, @Body() dto: UpdateNameDto) {
+        // Сервис обновит имя и вернет объект { access_token: "..." }
+        return this.profileService.updateName(user.userId, dto);
+    }
+
     @Patch("password")
     public async updatePassword(@CurrentUser() user: any, @Body() dto: UpdatePasswordDto) {
-        await this.profileService.updatePassword(user.userId, dto);
-        return { message: "Пароль успешно изменен" };
+        return this.profileService.updatePassword(user.userId, dto);
     }
 
     @Patch("email")
@@ -25,8 +31,7 @@ export class ProfileController {
 
     @Delete("telegram")
     public async unlinkTelegram(@CurrentUser() user: any) {
-        await this.profileService.unlinkTelegram(user.userId);
-        return { message: "Telegram успешно отвязан" };
+        return this.profileService.unlinkTelegram(user.userId);
     }
 
     @Get("telegram-link")

@@ -33,8 +33,9 @@ export class AuthController {
         if (!token) {
             throw new BadRequestException("Требуется токен подтверждения");
         }
-        await this.authService.confirmEmail(token);
-        return { message: "Email успешно подтвержден" };
+        // Подтверждаем пользователя и сразу возвращаем JWT токен для автовхода
+        const user = await this.authService.confirmEmail(token);
+        return this.authService.login(user);
     }
 
     @Public()

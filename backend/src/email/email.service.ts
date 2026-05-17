@@ -22,10 +22,10 @@ export class EmailService {
         const fromEmail =
             this.configService.get<string>("MAILOPOST_FROM_EMAIL") || "noreply@bulbadyshka.ru";
 
-        const link = `${process.env.FRONTEND_URL}/confirm?token=${token}`;
+        const link = `${process.env.FRONTEND_URL}/confirm-email?token=${token}`;
         const htmlTemplate = `
-      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-        <h2 style="color: #2c3e50; text-align: center;">Подтверждение Email</h2>
+      <div style="font-family: Arial, sans-serif; color: #231001; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+        <h2 style="color: #231001; text-align: center;">Подтверждение Email</h2>
         <p style="font-size: 16px; line-height: 1.5;">Здравствуйте!</p>
         <p style="font-size: 16px; line-height: 1.5;">Для завершения регистрации, пожалуйста, подтвердите ваш адрес электронной почты, перейдя по ссылке ниже:</p>
         <p style="text-align: center; margin-top: 30px;">
@@ -77,10 +77,10 @@ export class EmailService {
         const dateStr = new Date(createdAt).toLocaleDateString("ru-RU");
 
         const htmlTemplate = `
-      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-        <h2 style="color: #2c3e50; text-align: center;">${greeting}</h2>
+      <div style="font-family: Arial, sans-serif; color: #231001; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+        <h2 style="color: #231001; text-align: center;">${greeting}</h2>
         <p style="font-size: 16px; line-height: 1.5;">Настало время открыть ваше письмо в будущее, созданное <strong>${dateStr}</strong>.</p>
-        <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4CAF50; margin: 20px 0; font-style: italic; color: #555;">
+        <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4CAF50; margin: 20px 0; font-style: italic; color: #231001;">
           "${preview}"
         </div>
         <p style="text-align: center; margin-top: 30px;">

@@ -7,6 +7,7 @@ import * as crypto from "crypto";
 import { UpdatePasswordDto } from "./dto/update-password.dto";
 import { UpdateEmailDto } from "./dto/update-email.dto";
 import { TelegramAuthDto } from "../auth/dto/telegram-auth.dto";
+import { UpdateNameDto } from "./dto/update-name.dto";
 
 @Injectable()
 export class ProfileService {
@@ -16,21 +17,35 @@ export class ProfileService {
         private readonly authService: AuthService,
     ) {}
 
+    public async updateName(userId: string, dto: UpdateNameDto) {
+        const user = await this.usersService.findById(userId);
+        if (!user) throw new UnauthorizedException("Пользователь не найден");
+
+        // Убираем возможные HTML-теги для защиты от базового XSS
+        const sanitizedName = dto.firstName.replace(/<[^>]*>?/gm, "").trim();
+
+        user.firstName = sanitizedName;
+        await this.usersService.save(user);
+
+        // Сразу генерируем и возвращаем новый JWT токен, чтобы фронтенд его подхватил
+        return this.authService.login(user);
+    }
+
     public async updatePassword(userId: string, dto: UpdatePasswordDto) {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException("Пользователь не найден");
-        if (!user.passwordHash) {
-            throw new BadRequestException(
-                "У этого аккаунта не задан пароль (возможно, регистрация через Telegram).",
-            );
-        }
 
-        const isMatch = await bcrypt.compare(dto.oldPassword, user.passwordHash);
-        if (!isMatch) throw new BadRequestException("Неверный текущий пароль");
+        if (user.passwordHash) {
+            if (!dto.oldPassword) throw new BadRequestException("Введите текущий пароль");
+            const isMatch = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+            if (!isMatch) throw new BadRequestException("Неверный текущий пароль");
+        }
 
         const saltRounds = 10;
         user.passwordHash = await bcrypt.hash(dto.newPassword, saltRounds);
-        return this.usersService.save(user);
+        await this.usersService.save(user);
+
+        return this.authService.login(user);
     }
 
     public async updateEmail(userId: string, dto: UpdateEmailDto) {
@@ -58,7 +73,9 @@ export class ProfileService {
         if (!user) throw new UnauthorizedException("Пользователь не найден");
 
         user.telegramId = null;
-        return this.usersService.save(user);
+        await this.usersService.save(user);
+
+        return this.authService.login(user);
     }
 
     public async generateTelegramLink(userId: string): Promise<string> {

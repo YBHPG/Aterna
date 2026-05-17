@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 interface CreateMessageForm {
     content: string;
@@ -27,9 +28,11 @@ export const CreateMessage: React.FC = () => {
         if (savedDraft) {
             try {
                 const parsedDraft = JSON.parse(savedDraft);
-                if (parsedDraft && (parsedDraft.content || parsedDraft.triggerDate)) {
+                if (parsedDraft && parsedDraft.content && parsedDraft.content.trim() !== "") {
                     reset(parsedDraft);
-                    alert("Восстановлен черновик"); // Замените на Toast-библиотеку при необходимости
+                    toast.success("Восстановлен черновик");
+                } else {
+                    localStorage.removeItem("draft_message");
                 }
             } catch (error) {
                 console.error("Не удалось восстановить черновик:", error);
@@ -39,10 +42,21 @@ export const CreateMessage: React.FC = () => {
 
     // Отслеживаем изменения формы "на лету" и пишем черновик в localStorage
     useEffect(() => {
+        let timeoutId: ReturnType<typeof setTimeout>;
         const subscription = watch((value) => {
-            localStorage.setItem("draft_message", JSON.stringify(value));
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                if (value.content && value.content.trim() !== "") {
+                    localStorage.setItem("draft_message", JSON.stringify(value));
+                } else {
+                    localStorage.removeItem("draft_message");
+                }
+            }, 1000);
         });
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(timeoutId);
+        };
     }, [watch]);
 
     // Обязательная очистка стейта формы при размонтировании (unmount)
@@ -69,8 +83,7 @@ export const CreateMessage: React.FC = () => {
             const response = await api.post("/messages", payload);
 
             if (response.status === 201) {
-                // MVP-уведомление (замените на нужную библиотеку Toast при необходимости)
-                alert("Письмо успешно отправлено в будущее!");
+                toast.success("Письмо успешно отправлено в будущее!");
                 // Очищаем стейт формы
                 reset();
                 // Выполняем редирект
@@ -89,13 +102,15 @@ export const CreateMessage: React.FC = () => {
 
     return (
         <div className="max-w-2xl px-4 py-8 mx-auto">
-            <h2 className="mb-6 text-3xl font-bold text-gray-800">Письмо в будущее</h2>
+            <h2 className="mb-6 text-3xl font-bold text-[var(--color-text-main)]">
+                Письмо в будущее
+            </h2>
             {/* Отключаем автозаполнение на уровне формы */}
             <form onSubmit={handleSubmit(onSubmit)} autoComplete="off" className="space-y-6">
                 <div>
                     <label
                         htmlFor="content"
-                        className="block mb-2 text-sm font-medium text-gray-700"
+                        className="block mb-2 text-sm font-medium text-[var(--color-text-main)]"
                     >
                         Текст сообщения:
                     </label>
@@ -116,7 +131,7 @@ export const CreateMessage: React.FC = () => {
                 <div>
                     <label
                         htmlFor="recipientEmail"
-                        className="block mb-2 text-sm font-medium text-gray-700"
+                        className="block mb-2 text-sm font-medium text-[var(--color-text-main)]"
                     >
                         Email получателя:
                     </label>
@@ -142,7 +157,7 @@ export const CreateMessage: React.FC = () => {
                 <div>
                     <label
                         htmlFor="triggerDate"
-                        className="block mb-2 text-sm font-medium text-gray-700"
+                        className="block mb-2 text-sm font-medium text-[var(--color-text-main)]"
                     >
                         Дата и время отправки:
                     </label>

@@ -103,7 +103,7 @@ export class MessagesService {
             throw new ForbiddenException("You do not have permission to cancel this message");
         }
 
-        if (document.status === MessageStatus.PENDING) {
+        if (document.status !== MessageStatus.CANCELLED) {
             document.status = MessageStatus.CANCELLED;
             await document.save();
         }

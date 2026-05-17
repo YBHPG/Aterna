@@ -21,15 +21,16 @@ export class AuthService {
             await this.emailService.sendConfirmationEmail(user.email, user.emailConfirmationToken);
         }
 
-        return this.login(user);
+        // Убрали автоматический логин. Теперь пользователь должен подтвердить почту.
+        return { message: "Регистрация успешна. Подтвердите email." };
     }
 
-    async confirmEmail(token: string): Promise<void> {
+    async confirmEmail(token: string): Promise<any> {
         const user = await this.usersService.findByEmailConfirmationToken(token);
         if (!user) {
             throw new BadRequestException("Неверный или просроченный токен подтверждения");
         }
-        await this.usersService.confirmEmail(user);
+        return this.usersService.confirmEmail(user);
     }
 
     async validateUser(email: string, pass: string): Promise<any> {
@@ -48,7 +49,14 @@ export class AuthService {
     }
 
     async login(user: any) {
-        const payload = { email: user.email, sub: user.id };
+        const payload = {
+            email: user.email,
+            sub: user.id,
+            firstName: user.firstName,
+            telegramId: user.telegramId,
+            hasPassword: !!user.passwordHash,
+            isEmailConfirmed: user.isEmailConfirmed,
+        };
         return {
             access_token: this.jwtService.sign(payload),
         };

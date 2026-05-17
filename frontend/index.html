@@ -3,7 +3,28 @@
 
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <!-- Иконки для светлой темы (тёмные фавиконки) -->
+    <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-dark-32x32.png"
+        media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-dark-16x16.png"
+        media="(prefers-color-scheme: light)" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-dark.png"
+        media="(prefers-color-scheme: light)" />
+
+    <!-- Иконки для тёмной темы (светлые фавиконки) -->
+    <link rel="icon" type="image/svg+xml" href="/favicon-light.svg" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-light-32x32.png"
+        media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-light-16x16.png"
+        media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-light.png"
+        media="(prefers-color-scheme: dark)" />
+
+    <!-- Fallback-вариант для старых браузеров (они не понимают media) -->
+    <link rel="shortcut icon" href="/favicon.ico" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aterna</title>
 </head>

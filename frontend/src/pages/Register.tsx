@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
-import { TelegramLoginButton, TelegramUser } from "../components/TelegramLoginButton";
+import toast from "react-hot-toast";
 
 interface RegisterFormInputs {
     email: string;
@@ -23,22 +23,15 @@ const Register: React.FC = () => {
     const processDraftAndRedirect = async () => {
         const draft = localStorage.getItem("draft_message");
         if (draft) {
-            try {
-                const parsedDraft = JSON.parse(draft);
-                if (parsedDraft.content && parsedDraft.triggerDate) {
-                    const payload = {
-                        ...parsedDraft,
-                        triggerDate: new Date(parsedDraft.triggerDate).toISOString(),
-                    };
-                    await api.post("/messages", payload);
-                    localStorage.removeItem("draft_message");
-                    alert("Отложенное письмо успешно отправлено!");
-                }
-            } catch (err) {
-                console.error("Ошибка при отправке черновика:", err);
-            }
+            toast.success(
+                "Почти готово! Подтвердите почту по ссылке из письма, чтобы отправить ваше письмо.",
+                { duration: 6000 },
+            );
+            navigate("/");
+        } else {
+            toast.success("Регистрация успешна! Подтвердите почту для завершения.");
+            navigate("/dashboard");
         }
-        navigate("/dashboard");
     };
 
     const onSubmit = async (data: RegisterFormInputs) => {
@@ -56,118 +49,196 @@ const Register: React.FC = () => {
                 login(token); // сразу авторизуем после успешной регистрации (если backend возвращает токен)
                 await processDraftAndRedirect();
             } else {
-                navigate("/login"); // если токена нет, отправляем на страницу входа
+                await processDraftAndRedirect(); // токена нет, выводим тост о подтверждении почты
             }
         } catch (error) {
             console.error("Ошибка при регистрации:", error);
-            alert("Не удалось зарегистрироваться. Проверьте данные и попробуйте снова.");
-        }
-    };
-
-    const handleTelegramAuth = async (user: TelegramUser) => {
-        try {
-            const response = await api.post("/auth/telegram", user);
-            const token =
-                response.data.token || response.data.access_token || response.data.accessToken;
-            if (token) {
-                login(token); // сразу авторизуем после успешной регистрации
-                await processDraftAndRedirect();
-            }
-        } catch (error) {
-            console.error("Ошибка при входе через Telegram:", error);
-            alert("Не удалось авторизоваться через Telegram. Попробуйте снова.");
+            toast.error("Не удалось зарегистрироваться. Проверьте данные и попробуйте снова.");
         }
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
-                <h2 className="mb-6 text-2xl font-bold text-center text-gray-800">Регистрация</h2>
-                <form onSubmit={handleSubmit(onSubmit)}>
-                    <div className="mb-4">
-                        <label
-                            className="block mb-2 text-sm font-medium text-gray-700"
-                            htmlFor="firstName"
-                        >
-                            Имя (необязательно)
-                        </label>
-                        <input
-                            id="firstName"
-                            type="text"
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-200"
-                            {...register("firstName")}
-                        />
-                        {errors.firstName && (
-                            <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
-                        )}
-                    </div>
+        <div
+            className="min-h-screen w-full flex flex-col"
+            style={{ backgroundColor: "var(--color-bg-main)", fontFamily: "Inter, sans-serif" }}
+        >
+            {/* Header */}
+            <header className="flex items-center justify-center gap-4 pt-6 pb-4 shrink-0">
+                <Link
+                    to="/"
+                    className="flex items-center shrink-0 hover:opacity-80 transition-opacity"
+                >
+                    <img
+                        src="/logo.svg"
+                        alt="Logo"
+                        className="h-10 w-12 object-contain"
+                        style={{ filter: "var(--logo-filter)" }}
+                    />
+                </Link>
+            </header>
 
-                    <div className="mb-4">
-                        <label
-                            className="block mb-2 text-sm font-medium text-gray-700"
-                            htmlFor="email"
-                        >
-                            Email
-                        </label>
-                        <input
-                            id="email"
-                            type="email"
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-200"
-                            {...register("email", { required: "Введите email" })}
-                        />
-                        {errors.email && (
-                            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-                        )}
-                    </div>
-
-                    <div className="mb-6">
-                        <label
-                            className="block mb-2 text-sm font-medium text-gray-700"
-                            htmlFor="password"
-                        >
-                            Пароль
-                        </label>
-                        <input
-                            id="password"
-                            type="password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring focus:ring-blue-200"
-                            {...register("password", {
-                                required: "Введите пароль",
-                                minLength: { value: 6, message: "Минимум 6 символов" },
-                            })}
-                        />
-                        {errors.password && (
-                            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-                        )}
-                    </div>
-
-                    <button
-                        type="submit"
-                        className="w-full px-4 py-2 font-bold text-white bg-green-500 rounded hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300"
+            {/* Main Content */}
+            <main
+                className="mx-auto px-4 flex-1 w-full flex items-center justify-center"
+                style={{ maxWidth: 1120 }}
+            >
+                <div
+                    className="w-full px-6 py-8 md:px-[50px] md:py-[40px] flex flex-col mx-auto"
+                    style={{
+                        backgroundColor: "var(--color-bg-card)",
+                        borderRadius: 50,
+                        maxWidth: 450,
+                        boxShadow:
+                            "0px 8px 10px -6px rgba(0,0,0,0.1), 0px 20px 25px -3px rgba(0,0,0,0.1)",
+                    }}
+                >
+                    <h2
+                        className="mb-8 text-3xl md:text-4xl font-bold text-center"
+                        style={{ fontFamily: "Cormorant, serif", color: "var(--color-text-main)" }}
                     >
-                        Зарегистрироваться
-                    </button>
-                </form>
-                <div className="mt-6 flex flex-col items-center">
-                    <p className="mb-4 text-sm text-gray-600">
-                        Или зарегистрируйтесь через соцсети:
-                    </p>
-                    <div className="flex flex-col space-y-3 w-full">
-                        <div className="flex justify-center">
-                            <TelegramLoginButton
-                                botName={import.meta.env.VITE_TELEGRAM_BOT_NAME || "Aterna_bot"}
-                                onAuth={handleTelegramAuth}
-                            />
+                        Регистрация
+                    </h2>
+
+                    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+                        {/* Имя */}
+                        <div className="flex flex-col gap-2">
+                            <label
+                                className="text-base font-medium"
+                                style={{ color: "var(--color-text-main)" }}
+                            >
+                                Имя (необязательно)
+                            </label>
+                            <div className="flex items-center px-4 py-2.5 bg-[var(--color-bg-main)] rounded-[22px]">
+                                <input
+                                    id="firstName"
+                                    type="text"
+                                    className="bg-transparent outline-none w-full"
+                                    style={{
+                                        fontFamily: "Cormorant, serif",
+                                        fontSize: 16,
+                                        color: "var(--color-text-main)",
+                                    }}
+                                    autoComplete="given-name"
+                                    {...register("firstName")}
+                                />
+                            </div>
+                            {errors.firstName && (
+                                <span className="text-sm text-red-500">
+                                    {errors.firstName.message}
+                                </span>
+                            )}
                         </div>
-                    </div>
+
+                        {/* Email */}
+                        <div className="flex flex-col gap-2">
+                            <label
+                                className="text-base font-medium"
+                                style={{ color: "var(--color-text-main)" }}
+                            >
+                                Email
+                            </label>
+                            <div className="flex items-center px-4 py-2.5 bg-[var(--color-bg-main)] rounded-[22px]">
+                                <input
+                                    id="email"
+                                    type="email"
+                                    className="bg-transparent outline-none w-full"
+                                    style={{
+                                        fontFamily: "Cormorant, serif",
+                                        fontSize: 16,
+                                        color: "var(--color-text-main)",
+                                    }}
+                                    autoComplete="email"
+                                    {...register("email", { required: "Введите email" })}
+                                />
+                            </div>
+                            {errors.email && (
+                                <span className="text-sm text-red-500">{errors.email.message}</span>
+                            )}
+                        </div>
+
+                        {/* Пароль */}
+                        <div className="flex flex-col gap-2">
+                            <label
+                                className="text-base font-medium"
+                                style={{ color: "var(--color-text-main)" }}
+                            >
+                                Пароль
+                            </label>
+                            <div className="flex items-center px-4 py-2.5 bg-[var(--color-bg-main)] rounded-[22px]">
+                                <input
+                                    id="password"
+                                    type="password"
+                                    className="bg-transparent outline-none w-full"
+                                    style={{
+                                        fontFamily: "Cormorant, serif",
+                                        fontSize: 16,
+                                        color: "var(--color-text-main)",
+                                    }}
+                                    autoComplete="new-password"
+                                    {...register("password", {
+                                        required: "Введите пароль",
+                                        minLength: { value: 6, message: "Минимум 6 символов" },
+                                    })}
+                                />
+                            </div>
+                            {errors.password && (
+                                <span className="text-sm text-red-500">
+                                    {errors.password.message}
+                                </span>
+                            )}
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="w-full px-8 py-3 mt-4 transition-opacity hover:opacity-90"
+                            style={{
+                                backgroundColor: "var(--color-accent)",
+                                color: "var(--color-bg-card)",
+                                borderRadius: 25,
+                                fontFamily: "Cormorant, serif",
+                                fontWeight: 700,
+                                fontSize: 16,
+                                border: "none",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Зарегистрироваться
+                        </button>
+                    </form>
+
+                    <p
+                        className="mt-8 text-center text-sm"
+                        style={{ color: "var(--color-text-main)" }}
+                    >
+                        Уже есть аккаунт?{" "}
+                        <Link
+                            to="/login"
+                            className="font-semibold hover:underline"
+                            style={{ color: "var(--color-accent)" }}
+                        >
+                            Войти
+                        </Link>
+                    </p>
                 </div>
-                <p className="mt-4 text-sm text-center text-gray-600">
-                    Уже есть аккаунт?{" "}
-                    <Link to="/login" className="text-blue-500 hover:underline">
-                        Войти
+            </main>
+
+            {/* Footer */}
+            <footer
+                className="w-full py-8 mt-10 flex flex-col items-center justify-center gap-2 text-[rgba(var(--rgb-accent),0.7)] shrink-0"
+                style={{ fontFamily: "Inter, sans-serif" }}
+            >
+                <div className="text-sm font-medium">
+                    © {new Date().getFullYear()} Aterna. Защищенные послания в будущее.
+                </div>
+                <div className="text-xs flex gap-4 mt-1">
+                    <Link to="#" className="hover:text-[var(--color-accent)] transition-colors">
+                        Политика конфиденциальности
                     </Link>
-                </p>
-            </div>
+                    <Link to="#" className="hover:text-[var(--color-accent)] transition-colors">
+                        Технологии безопасности
+                    </Link>
+                </div>
+            </footer>
         </div>
     );
 };

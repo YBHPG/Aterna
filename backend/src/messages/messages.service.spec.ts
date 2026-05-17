@@ -281,7 +281,7 @@ describe("MessagesService", () => {
             expect(result).toEqual(mockDocument);
         });
 
-        it("не должен менять статус если письмо не pending", async () => {
+        it("должен менять статус на cancelled даже если письмо уже отправлено", async () => {
             const mockDocument = {
                 _id: "msg1",
                 userId: "ownerId",
@@ -293,8 +293,8 @@ describe("MessagesService", () => {
 
             const result = await service.cancel("msg1", "ownerId");
 
-            expect(mockDocument.status).toBe(MessageStatus.SENT); // remained SENT
-            expect(mockDocument.save).not.toHaveBeenCalled();
+            expect(mockDocument.status).toBe(MessageStatus.CANCELLED);
+            expect(mockDocument.save).toHaveBeenCalled();
             expect(result).toEqual(mockDocument);
         });
     });
