@@ -45,7 +45,7 @@ describe("AuthService", () => {
     });
 
     describe("validateUser", () => {
-        it("должен возвращать пользователя без пароля при верных учетных данных", async () => {
+        it("должен возвращать пользователя при верных учетных данных", async () => {
             const user = { id: "1", email: "test@test.com", passwordHash: "hash" };
             (usersService.findByEmail as jest.Mock).mockResolvedValue(user);
             (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -54,7 +54,7 @@ describe("AuthService", () => {
 
             expect(usersService.findByEmail).toHaveBeenCalledWith("test@test.com");
             expect(bcrypt.compare).toHaveBeenCalledWith("password", "hash");
-            expect(result).toEqual({ id: "1", email: "test@test.com" });
+            expect(result).toEqual(user);
         });
 
         it("должен выбрасывать UnauthorizedException при неверном пароле", async () => {

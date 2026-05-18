@@ -44,8 +44,7 @@ export class AuthService {
             throw new UnauthorizedException("Неверный email или пароль");
         }
 
-        const { passwordHash, ...result } = user;
-        return result;
+        return user;
     }
 
     async login(user: any) {
