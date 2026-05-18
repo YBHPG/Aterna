@@ -217,6 +217,12 @@ const ViewMessage: React.FC = () => {
                 >
                     <Link
                         to="/profile"
+                        onClick={(e) => {
+                            if (!isMenuHovered) {
+                                e.preventDefault();
+                                setIsMenuHovered(true);
+                            }
+                        }}
                         className="relative z-10 bg-[var(--color-profile-bg)] text-[var(--color-profile-text)] px-7 py-3 rounded-[2rem] tracking-wide text-center block max-w-[150px] sm:max-w-[250px] truncate"
                         style={{
                             fontFamily: "Cormorant, serif",
@@ -231,6 +237,7 @@ const ViewMessage: React.FC = () => {
                     <div className="absolute top-0 left-0 w-full bg-[var(--color-dropdown-bg)] rounded-[2rem] flex flex-col items-center justify-end -z-10 h-[52px] opacity-0 pointer-events-none group-hover:h-[116px] group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 ease-in-out overflow-hidden shadow-sm pb-[12px]">
                         <Link
                             to="/dashboard"
+                            onClick={() => setIsMenuHovered(false)}
                             className="text-[var(--color-border)] w-full text-center transition-colors hover:text-[var(--color-error-hover)] mb-2"
                             style={{
                                 fontFamily: "Cormorant, serif",
