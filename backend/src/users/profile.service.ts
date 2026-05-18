@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, UnauthorizedException } from "@nestjs/common";
+import { Injectable, BadRequestException, UnauthorizedException, Logger } from "@nestjs/common";
 import { UsersService } from "../users/users.service";
 import { EmailService } from "../email/email.service";
 import { AuthService } from "../auth/auth.service";
@@ -12,6 +12,8 @@ import { TelegramService } from "../auth/telegram.service";
 
 @Injectable()
 export class ProfileService {
+    private readonly logger = new Logger(ProfileService.name);
+
     constructor(
         private readonly usersService: UsersService,
         private readonly emailService: EmailService,
@@ -79,6 +81,14 @@ export class ProfileService {
 
         const savedOtp = String(user.passwordChangeOtp || "").trim();
         const inputOtp = String(dto.otp || "").trim();
+
+        this.logger.debug(`[updatePassword] Сравнение кодов OTP для пользователя ${userId}`);
+        this.logger.debug(
+            `[updatePassword] Код из базы (savedOtp): '${savedOtp}' (длина: ${savedOtp.length})`,
+        );
+        this.logger.debug(
+            `[updatePassword] Код из запроса (inputOtp): '${inputOtp}' (длина: ${inputOtp.length})`,
+        );
 
         if (!savedOtp || savedOtp !== inputOtp) {
             throw new BadRequestException("Неверный код подтверждения");
