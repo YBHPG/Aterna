@@ -125,7 +125,7 @@ export class ProfileService {
         const existingUser = await this.usersService.findByEmail(newEmail);
         if (existingUser) throw new BadRequestException("Этот email уже используется");
 
-        (user as any).pendingEmail = newEmail;
+        user.pendingEmail = newEmail;
         user.emailConfirmationToken = crypto.randomBytes(32).toString("hex");
 
         await this.usersService.save(user);
@@ -144,9 +144,9 @@ export class ProfileService {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException("Пользователь не найден");
 
-        const targetEmail = (user as any).pendingEmail || user.email;
+        const targetEmail = user.pendingEmail || user.email;
 
-        if (user.isEmailConfirmed && !(user as any).pendingEmail) {
+        if (user.isEmailConfirmed && !user.pendingEmail) {
             throw new BadRequestException("Email уже подтвержден");
         }
 

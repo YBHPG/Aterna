@@ -47,9 +47,9 @@ export class AuthService {
         if (!user) {
             throw new BadRequestException("Неверный или просроченный токен подтверждения");
         }
-        if ((user as any).pendingEmail) {
-            user.email = (user as any).pendingEmail;
-            (user as any).pendingEmail = null;
+        if (user.pendingEmail) {
+            user.email = user.pendingEmail;
+            user.pendingEmail = null;
         }
         return this.usersService.confirmEmail(user);
     }
@@ -153,7 +153,7 @@ export class AuthService {
             telegramId: user.telegramId,
             hasPassword: !!user.passwordHash,
             isEmailConfirmed: user.isEmailConfirmed,
-            pendingEmail: (user as any).pendingEmail || null,
+            pendingEmail: user.pendingEmail || null,
         };
         return {
             access_token: this.jwtService.sign(payload),

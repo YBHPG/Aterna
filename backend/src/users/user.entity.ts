@@ -23,6 +23,9 @@ export class User {
     @Column({ nullable: true })
     firstName: string;
 
+    @Column({ name: "pending_email", nullable: true })
+    pendingEmail?: string | null;
+
     @Column({ name: "password_hash", nullable: true })
     passwordHash?: string;
 
