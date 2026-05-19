@@ -64,6 +64,7 @@ describe("MessagesService", () => {
             content: "Тестовое послание в будущее",
             triggerDate: new Date("2099-01-01T10:00:00.000Z"),
         };
+        const expectedTriggerDate = new Date("2099-01-01T12:00:00.000Z");
 
         it("должен вызвать cryptoService.encrypt с открытым текстом сообщения", async () => {
             (cryptoService.encrypt as jest.Mock).mockReturnValue(mockEncryptResult);
@@ -84,7 +85,7 @@ describe("MessagesService", () => {
             expect(mockMessageModel).toHaveBeenCalledWith({
                 userId,
                 recipientEmail: userEmail,
-                triggerDate: dto.triggerDate,
+                triggerDate: expectedTriggerDate,
                 encryptedContent: mockEncryptResult.encryptedContent,
                 iv: mockEncryptResult.iv,
                 authTag: mockEncryptResult.authTag,
@@ -97,7 +98,7 @@ describe("MessagesService", () => {
                 _id: { toString: () => "mongo-object-id" },
                 userId,
                 recipientEmail: userEmail,
-                triggerDate: dto.triggerDate,
+                triggerDate: expectedTriggerDate,
                 ...mockEncryptResult,
                 status: MessageStatus.PENDING,
             };
@@ -143,7 +144,8 @@ describe("MessagesService", () => {
 
             const triggerDate = new Date("2099-01-01T10:00:00.000Z");
             const dtoWithDate = { ...dto, triggerDate };
-            const expectedDelay = triggerDate.getTime() - mockNow;
+            const expectedTriggerDateWithDelay = new Date("2099-01-01T12:00:00.000Z");
+            const expectedDelay = expectedTriggerDateWithDelay.getTime() - mockNow;
 
             await service.create(userId, userEmail, dtoWithDate);
 

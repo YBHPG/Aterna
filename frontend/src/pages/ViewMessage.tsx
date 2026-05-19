@@ -20,6 +20,7 @@ const ViewMessage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [editContent, setEditContent] = useState<string>("");
+    const [editRecipient, setEditRecipient] = useState<string>("");
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [isMenuHovered, setIsMenuHovered] = useState(false);
     const navigate = useNavigate();
@@ -32,6 +33,7 @@ const ViewMessage: React.FC = () => {
                 const response = await api.get(`/messages/${id}`);
                 setMessage(response.data);
                 setEditContent(response.data.content || "");
+                setEditRecipient(response.data.recipientEmail || "");
             } catch (err: any) {
                 if (err.response && err.response.status === 403) {
                     setError(
@@ -118,17 +120,21 @@ const ViewMessage: React.FC = () => {
         );
     if (!message) return null;
 
-    // Письмо можно редактировать, только если статус pending, оно не заблокировано и прошло менее 24 часов.
-    // Следовательно, если статус 'sent' или 'cancelled', isEditable будет false и отрендерится обычный текст.
-    const isEditable =
+    const isContentEditable =
         message.status === "pending" &&
         !message.isLocked &&
         Date.now() - new Date(message.createdAt).getTime() < 24 * 60 * 60 * 1000;
 
+    const isRecipientEditable = message.status === "pending";
+
     const handleSave = async () => {
         try {
             setIsSaving(true);
-            await api.patch(`/messages/${id}`, { content: editContent });
+            const payload: any = { recipientEmail: editRecipient };
+            if (isContentEditable) {
+                payload.content = editContent;
+            }
+            await api.patch(`/messages/${id}`, payload);
             toast.success("Изменения успешно сохранены!");
             navigate("/dashboard");
         } catch (err) {
@@ -165,6 +171,17 @@ const ViewMessage: React.FC = () => {
         "Профиль";
     const nameLen = displayName.length;
     const nameFontSize = nameLen > 22 ? 14 : 16;
+
+    const isDummyEmail = currentUser?.email?.endsWith("@telegram.local");
+    const hasEmail = !!currentUser?.email && !isDummyEmail;
+    const isTelegramLinked = !!currentUser?.telegramId;
+
+    const getRecipientLabel = (val: string) => {
+        if (val === "telegram") return "Telegram";
+        if (val === "both") return "Telegram + Email";
+        if (val === "email" || val === currentUser?.email) return currentUser?.email || "Email";
+        return val;
+    };
 
     // Форматирование дат
     const createdAtDate = new Date(message.createdAt);
@@ -320,18 +337,71 @@ const ViewMessage: React.FC = () => {
                         >
                             Адрес получателя
                         </span>
-                        <span
-                            className="truncate"
-                            style={{
-                                fontFamily: "Cormorant, serif",
-                                fontWeight: 400,
-                                fontSize: 18,
-                                color: "var(--color-text-main)",
-                                letterSpacing: "0.6px",
-                            }}
-                        >
-                            {message.recipientEmail}
-                        </span>
+                        {isRecipientEditable ? (
+                            <div
+                                className="flex items-center px-4 py-2.5 relative transition-opacity w-full md:w-2/3 lg:w-1/2"
+                                style={{
+                                    backgroundColor: "var(--color-bg-main)",
+                                    borderRadius: 22,
+                                }}
+                            >
+                                <select
+                                    value={
+                                        editRecipient === currentUser?.email
+                                            ? "email"
+                                            : editRecipient
+                                    }
+                                    onChange={(e) => setEditRecipient(e.target.value)}
+                                    className="bg-transparent outline-none w-full cursor-pointer appearance-none"
+                                    style={{
+                                        fontFamily: "Cormorant, serif",
+                                        fontWeight: 500,
+                                        fontSize: 18,
+                                        color: "var(--color-text-main)",
+                                    }}
+                                >
+                                    {hasEmail && <option value="email">{currentUser.email}</option>}
+                                    {isTelegramLinked && <option value="telegram">Telegram</option>}
+                                    {hasEmail && isTelegramLinked && (
+                                        <option value="both">Telegram + Email</option>
+                                    )}
+                                    {editRecipient !== "email" &&
+                                        editRecipient !== currentUser?.email &&
+                                        editRecipient !== "telegram" &&
+                                        editRecipient !== "both" &&
+                                        editRecipient !== "" && (
+                                            <option value={editRecipient}>{editRecipient}</option>
+                                        )}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 text-[var(--color-text-main)]">
+                                    <svg
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    >
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        ) : (
+                            <span
+                                className="truncate"
+                                style={{
+                                    fontFamily: "Cormorant, serif",
+                                    fontWeight: 400,
+                                    fontSize: 18,
+                                    color: "var(--color-text-main)",
+                                    letterSpacing: "0.6px",
+                                }}
+                            >
+                                {getRecipientLabel(message.recipientEmail)}
+                            </span>
+                        )}
                     </div>
 
                     {/* Content Section */}
@@ -360,7 +430,7 @@ const ViewMessage: React.FC = () => {
                                 Вы сможете прочитать его после доставки или если отмените отправку.
                             </p>
                         </div>
-                    ) : isEditable ? (
+                    ) : isContentEditable ? (
                         <div className="w-full flex flex-col mb-8">
                             <div
                                 className="w-full px-6 py-4 md:px-[50px] md:py-[30px] rounded-[20px] md:rounded-[30px]"
@@ -388,25 +458,6 @@ const ViewMessage: React.FC = () => {
                                     rows={3}
                                 />
                             </div>
-                            <div className="mt-6 flex justify-end">
-                                <button
-                                    onClick={handleSave}
-                                    disabled={isSaving}
-                                    className={`px-8 py-3 transition-opacity ${isSaving ? "opacity-50" : "hover:opacity-90"}`}
-                                    style={{
-                                        backgroundColor: "var(--color-accent)",
-                                        color: "var(--color-bg-card)",
-                                        borderRadius: 25,
-                                        fontFamily: "Cormorant, serif",
-                                        fontWeight: 700,
-                                        fontSize: 16,
-                                        border: "none",
-                                        cursor: isSaving ? "not-allowed" : "pointer",
-                                    }}
-                                >
-                                    {isSaving ? "Сохранение..." : "Сохранить изменения"}
-                                </button>
-                            </div>
                         </div>
                     ) : (
                         <div
@@ -425,6 +476,29 @@ const ViewMessage: React.FC = () => {
                             >
                                 {message.content}
                             </p>
+                        </div>
+                    )}
+
+                    {/* Save Button */}
+                    {isRecipientEditable && (
+                        <div className="mb-8 flex justify-end">
+                            <button
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className={`px-8 py-3 transition-opacity ${isSaving ? "opacity-50" : "hover:opacity-90"}`}
+                                style={{
+                                    backgroundColor: "var(--color-accent)",
+                                    color: "var(--color-bg-card)",
+                                    borderRadius: 25,
+                                    fontFamily: "Cormorant, serif",
+                                    fontWeight: 700,
+                                    fontSize: 16,
+                                    border: "none",
+                                    cursor: isSaving ? "not-allowed" : "pointer",
+                                }}
+                            >
+                                {isSaving ? "Сохранение..." : "Сохранить изменения"}
+                            </button>
                         </div>
                     )}
 

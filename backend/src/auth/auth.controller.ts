@@ -39,6 +39,35 @@ export class AuthController {
     }
 
     @Public()
+    @Post("resend-confirmation")
+    async resendConfirmationEmail(@Body("email") email: string) {
+        if (!email) {
+            throw new BadRequestException("Требуется email");
+        }
+        return this.authService.resendConfirmationEmailPublic(email);
+    }
+
+    @Public()
+    @Post("forgot-password")
+    async forgotPassword(@Body("email") email: string) {
+        if (!email) throw new BadRequestException("Требуется email");
+        return this.authService.forgotPassword(email);
+    }
+
+    @Public()
+    @Post("reset-password")
+    async resetPassword(
+        @Body("email") email: string,
+        @Body("otp") otp: string,
+        @Body("newPassword") newPassword: string,
+    ) {
+        if (!email || !otp || !newPassword) throw new BadRequestException("Переданы не все данные");
+        if (newPassword.length < 6)
+            throw new BadRequestException("Минимальная длина пароля 6 символов");
+        return this.authService.resetPassword(email, otp, newPassword);
+    }
+
+    @Public()
     @HttpCode(HttpStatus.OK)
     @Post("login")
     async login(@Body() authDto: AuthDto) {

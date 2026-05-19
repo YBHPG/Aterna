@@ -123,7 +123,7 @@ const Profile: React.FC = () => {
         if (currentUser?.firstName) {
             resetNameForm({ firstName: currentUser.firstName });
         }
-    }, [currentUser, resetNameForm]);
+    }, [currentUser?.firstName, resetNameForm]);
 
     // Форма смены Email
     const {
@@ -144,7 +144,7 @@ const Profile: React.FC = () => {
         if (currentUser?.email && !currentUser.email.endsWith("@telegram.local")) {
             resetEmailForm({ email: currentUser.email });
         }
-    }, [currentUser, resetEmailForm]);
+    }, [currentUser?.email, resetEmailForm]);
 
     // Форма смены пароля
     const {
@@ -189,8 +189,15 @@ const Profile: React.FC = () => {
         }
 
         try {
-            await api.patch("/profile/email", data);
-            toast.success("Email успешно обновлен!");
+            const response = await api.patch("/profile/email", data);
+            toast.success("Письмо для подтверждения отправлено!");
+            const newToken =
+                response.data?.token || response.data?.access_token || response.data?.accessToken;
+            if (newToken) {
+                localStorage.setItem("access_token", newToken);
+                localStorage.setItem("token", newToken);
+                setRefreshKey((prev) => prev + 1);
+            }
         } catch (error: any) {
             console.error("Ошибка при обновлении email:", error);
             toast.error(error.response?.data?.message || "Не удалось обновить email");
@@ -254,6 +261,15 @@ const Profile: React.FC = () => {
         } catch (error: any) {
             console.error("Ошибка при смене пароля:", error);
             toast.error(error.response?.data?.message || "Неверный код");
+        }
+    };
+
+    const handleResendConfirmation = async () => {
+        try {
+            await api.post("/profile/resend-confirmation");
+            toast.success("Письмо с подтверждением отправлено!");
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Не удалось отправить письмо");
         }
     };
 
@@ -570,6 +586,41 @@ const Profile: React.FC = () => {
                                     Обновить Email
                                 </button>
                             </form>
+                            {(!isEmailConfirmed || currentUser?.pendingEmail) && hasEmail && (
+                                <div
+                                    className="mt-2 p-4 flex flex-col gap-2 rounded-[22px]"
+                                    style={{
+                                        backgroundColor: "rgba(var(--rgb-danger), 0.02)",
+                                        border: "1px solid rgba(var(--rgb-danger), 0.15)",
+                                    }}
+                                >
+                                    <span
+                                        className="text-sm text-center sm:text-left"
+                                        style={{
+                                            fontFamily: "Inter, sans-serif",
+                                            color: "var(--color-text-main)",
+                                            lineHeight: 1.5,
+                                            opacity: 0.9,
+                                        }}
+                                    >
+                                        {currentUser?.pendingEmail
+                                            ? `Необходимо подтвердить новую почту (${currentUser.pendingEmail}). До подтверждения будет использоваться старая почта.`
+                                            : "Ваш email не подтвержден. Доступ к аккаунту при следующем входе может быть ограничен."}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleResendConfirmation}
+                                        className="self-start mx-auto sm:mx-0 text-sm font-semibold hover:underline transition-opacity"
+                                        style={{
+                                            fontFamily: "Inter, sans-serif",
+                                            color: "var(--color-danger)",
+                                            opacity: 0.8,
+                                        }}
+                                    >
+                                        Отправить письмо еще раз
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Сменить пароль */}

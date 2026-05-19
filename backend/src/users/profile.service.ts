@@ -120,24 +120,67 @@ export class ProfileService {
         if (!user) throw new UnauthorizedException("Пользователь не найден");
 
         const newEmail = dto.email.toLowerCase();
-        if (user.email === newEmail) return user;
+        if (user.email === newEmail) return this.authService.login(user);
 
         const existingUser = await this.usersService.findByEmail(newEmail);
         if (existingUser) throw new BadRequestException("Этот email уже используется");
 
-        user.email = newEmail;
-        user.isEmailConfirmed = false;
+        (user as any).pendingEmail = newEmail;
         user.emailConfirmationToken = crypto.randomBytes(32).toString("hex");
 
         await this.usersService.save(user);
-        await this.emailService.sendConfirmationEmail(user.email, user.emailConfirmationToken);
 
-        return user;
+        try {
+            await this.emailService.sendConfirmationEmail(newEmail, user.emailConfirmationToken);
+        } catch (error) {
+            this.logger.error("Failed to send email confirmation:", error);
+            throw new BadRequestException("Не удалось отправить письмо с подтверждением");
+        }
+
+        return this.authService.login(user);
+    }
+
+    public async resendConfirmationEmail(userId: string) {
+        const user = await this.usersService.findById(userId);
+        if (!user) throw new UnauthorizedException("Пользователь не найден");
+
+        const targetEmail = (user as any).pendingEmail || user.email;
+
+        if (user.isEmailConfirmed && !(user as any).pendingEmail) {
+            throw new BadRequestException("Email уже подтвержден");
+        }
+
+        if (!targetEmail || targetEmail.endsWith("@telegram.local")) {
+            throw new BadRequestException("Нет валидного email для подтверждения");
+        }
+
+        user.emailConfirmationToken = crypto.randomBytes(32).toString("hex");
+        await this.usersService.save(user);
+
+        try {
+            await this.emailService.sendConfirmationEmail(targetEmail, user.emailConfirmationToken);
+        } catch (error) {
+            this.logger.error("Failed to resend email confirmation:", error);
+            throw new BadRequestException("Не удалось отправить письмо");
+        }
+
+        return { message: "Письмо отправлено" };
     }
 
     public async unlinkTelegram(userId: string) {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException("Пользователь не найден");
+
+        if (
+            !user.email ||
+            user.email.endsWith("@telegram.local") ||
+            !user.isEmailConfirmed ||
+            !user.passwordHash
+        ) {
+            throw new BadRequestException(
+                "Чтобы отвязать Telegram, необходимо добавить email, подтвердить его и установить пароль",
+            );
+        }
 
         user.telegramId = null;
         await this.usersService.save(user);

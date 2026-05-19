@@ -21,6 +21,16 @@ export class MessagesService {
         userEmail: string,
         dto: CreateMessageDto,
     ): Promise<MessageDocument> {
+        // Принудительно устанавливаем время отправки на 12:00:00 по Гринвичу (UTC)
+        const adjustedTriggerDate = new Date(dto.triggerDate);
+        adjustedTriggerDate.setUTCHours(12, 0, 0, 0);
+
+        // Если 12:00 UTC сегодня уже прошло, переносим отправку на следующий день
+        if (adjustedTriggerDate.getTime() <= Date.now()) {
+            adjustedTriggerDate.setUTCDate(adjustedTriggerDate.getUTCDate() + 1);
+        }
+        dto.triggerDate = adjustedTriggerDate;
+
         // Шифруем открытый текст
         const { encryptedContent, iv, authTag } = this.cryptoService.encrypt(dto.content);
 
@@ -75,19 +85,22 @@ export class MessagesService {
             throw new ForbiddenException("Можно редактировать только письма в статусе pending");
         }
 
-        const createdAt = (message as any).createdAt;
-        if (createdAt && Date.now() - createdAt.getTime() > 24 * 60 * 60 * 1000) {
-            throw new ForbiddenException("Время на редактирование истекло");
+        if (dto.content !== undefined) {
+            const createdAt = (message as any).createdAt;
+            if (createdAt && Date.now() - createdAt.getTime() > 24 * 60 * 60 * 1000) {
+                throw new ForbiddenException("Время на редактирование истекло");
+            }
+
+            const { encryptedContent, iv, authTag } = this.cryptoService.encrypt(dto.content);
+            (dto as unknown as Record<string, unknown>).content = "";
+            message.encryptedContent = encryptedContent;
+            message.iv = iv;
+            message.authTag = authTag;
         }
 
-        const { encryptedContent, iv, authTag } = this.cryptoService.encrypt(dto.content);
-
-        // Требование безопасности: немедленно перезаписываем открытый текст в памяти
-        (dto as unknown as Record<string, unknown>).content = "";
-
-        message.encryptedContent = encryptedContent;
-        message.iv = iv;
-        message.authTag = authTag;
+        if (dto.recipientEmail !== undefined) {
+            message.recipientEmail = dto.recipientEmail;
+        }
 
         return message.save();
     }

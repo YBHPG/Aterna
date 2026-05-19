@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import api from "../utils/api";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +22,49 @@ export const CreateMessage: React.FC = () => {
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
 
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    const autoResize = (el: HTMLTextAreaElement) => {
+        // Сохраняем позиции скролла окна и поля, чтобы избежать любых дерганий экрана
+        const windowScrollY = window.scrollY;
+        const textareaScrollTop = el.scrollTop;
+
+        // Сбрасываем высоту до минимума для точного замера реального контента
+        el.style.height = "1px";
+
+        const style = window.getComputedStyle(el);
+        const lineHeight = parseFloat(style.lineHeight) || 24;
+        const padding =
+            parseFloat(style.paddingTop || "0") + parseFloat(style.paddingBottom || "0");
+        const border =
+            parseFloat(style.borderTopWidth || "0") + parseFloat(style.borderBottomWidth || "0");
+
+        const maxHeight = lineHeight * 15 + padding; // Идеальная высота ровно для 15 строк
+        const contentHeight = el.scrollHeight;
+
+        if (contentHeight > maxHeight) {
+            // Ограничиваем высоту и включаем внутренний скролл
+            el.style.height = `${maxHeight + border}px`;
+            el.style.overflowY = "auto";
+
+            // Восстанавливаем внутренний скролл (или прокручиваем вниз, если курсор в конце)
+            if (textareaScrollTop === 0 && el.selectionEnd >= el.value.length - 5) {
+                el.scrollTop = contentHeight;
+            } else {
+                el.scrollTop = textareaScrollTop;
+            }
+        } else {
+            // Поле свободно растет вместе с текстом
+            el.style.height = `${contentHeight + border}px`;
+            el.style.overflowY = "hidden";
+        }
+
+        // Возвращаем скролл страницы на место, блокируя скачки интерфейса
+        if (window.scrollY !== windowScrollY) {
+            window.scrollTo(window.scrollX, windowScrollY);
+        }
+    };
+
     // Восстановление черновика из localStorage при загрузке компонента
     useEffect(() => {
         const savedDraft = localStorage.getItem("draft_message");
@@ -31,6 +74,12 @@ export const CreateMessage: React.FC = () => {
                 if (parsedDraft && parsedDraft.content && parsedDraft.content.trim() !== "") {
                     reset(parsedDraft);
                     toast.success("Восстановлен черновик");
+                    // Обновляем высоту после рендера текста черновика
+                    setTimeout(() => {
+                        if (textareaRef.current) {
+                            autoResize(textareaRef.current);
+                        }
+                    }, 0);
                 } else {
                     localStorage.removeItem("draft_message");
                 }
@@ -100,6 +149,11 @@ export const CreateMessage: React.FC = () => {
         return selectedDate > minDate || "Дата отправки должна быть минимум на 1 час в будущем";
     };
 
+    // Отделяем встроенный ref от react-hook-form, чтобы использовать свой для авторесайза
+    const { ref: rhfRef, ...restContentReg } = register("content", {
+        required: "Введите текст сообщения",
+    });
+
     return (
         <div className="max-w-2xl px-4 py-8 mx-auto">
             <h2 className="mb-6 text-3xl font-bold text-[var(--color-text-main)]">
@@ -116,12 +170,18 @@ export const CreateMessage: React.FC = () => {
                     </label>
                     <textarea
                         id="content"
-                        {...register("content", { required: "Введите текст сообщения" })}
+                        {...restContentReg}
+                        ref={(e) => {
+                            rhfRef(e);
+                            textareaRef.current = e;
+                        }}
+                        onInput={(e) => autoResize(e.currentTarget)}
                         rows={5}
                         autoComplete="off"
                         autoCorrect="off"
                         spellCheck="false"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 overflow-hidden resize-none"
+                        style={{ transition: "none", overflowAnchor: "none" }}
                     />
                     {errors.content && (
                         <span className="text-sm text-red-500">{errors.content.message}</span>

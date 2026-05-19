@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, BadRequestException } from "@nestjs/common";
+import {
+    Injectable,
+    UnauthorizedException,
+    BadRequestException,
+    ForbiddenException,
+} from "@nestjs/common";
 import { UsersService } from "../users/users.service";
 import { JwtService } from "@nestjs/jwt";
 import { EmailService } from "../email/email.service";
@@ -15,10 +20,22 @@ export class AuthService {
     ) {}
 
     async register(email: string, passwordPlain?: string, firstName?: string) {
+        const existingUser = await this.usersService.findByEmail(email);
+        if (existingUser) {
+            throw new BadRequestException("Пользователь с таким email уже существует");
+        }
+
         const user = await this.usersService.create(email, passwordPlain, firstName);
 
-        if (user.emailConfirmationToken) {
+        if (!user.emailConfirmationToken) {
+            user.emailConfirmationToken = crypto.randomBytes(32).toString("hex");
+            await this.usersService.save(user);
+        }
+
+        try {
             await this.emailService.sendConfirmationEmail(user.email, user.emailConfirmationToken);
+        } catch (error) {
+            console.error("Failed to send confirmation email during registration:", error);
         }
 
         // Убрали автоматический логин. Теперь пользователь должен подтвердить почту.
@@ -29,6 +46,10 @@ export class AuthService {
         const user = await this.usersService.findByEmailConfirmationToken(token);
         if (!user) {
             throw new BadRequestException("Неверный или просроченный токен подтверждения");
+        }
+        if ((user as any).pendingEmail) {
+            user.email = (user as any).pendingEmail;
+            (user as any).pendingEmail = null;
         }
         return this.usersService.confirmEmail(user);
     }
@@ -44,7 +65,84 @@ export class AuthService {
             throw new UnauthorizedException("Неверный email или пароль");
         }
 
+        if (user.isEmailConfirmed === false && !user.email.endsWith("@telegram.local")) {
+            throw new ForbiddenException({
+                message: "Email не подтвержден",
+                unconfirmedEmail: true,
+                email: user.email,
+            });
+        }
+
         return user;
+    }
+
+    async resendConfirmationEmailPublic(email: string) {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            throw new BadRequestException("Пользователь не найден");
+        }
+        if (user.isEmailConfirmed) {
+            throw new BadRequestException("Email уже подтвержден");
+        }
+
+        user.emailConfirmationToken = crypto.randomBytes(32).toString("hex");
+        await this.usersService.save(user);
+        await this.emailService.sendConfirmationEmail(user.email, user.emailConfirmationToken);
+
+        return { message: "Письмо отправлено" };
+    }
+
+    async forgotPassword(email: string) {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            throw new BadRequestException("Пользователь с таким email не найден");
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        (user as any).passwordChangeOtp = otp;
+        (user as any).passwordChangeOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await this.usersService.save(user);
+
+        try {
+            await this.emailService.sendPasswordChangeOtp(user.email, otp);
+        } catch (error) {
+            console.error("Failed to send OTP email during forgot password:", error);
+            throw new BadRequestException("Не удалось отправить код на почту");
+        }
+
+        return { message: "Код отправлен на почту" };
+    }
+
+    async resetPassword(email: string, otp: string, newPassword: string) {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) throw new BadRequestException("Неверный email или код");
+
+        const savedOtp = String((user as any).passwordChangeOtp || "").trim();
+        const inputOtp = String(otp || "").trim();
+
+        if (!savedOtp || savedOtp !== inputOtp) {
+            throw new BadRequestException("Неверный код подтверждения");
+        }
+
+        if (
+            (user as any).passwordChangeOtpExpires &&
+            new Date() > (user as any).passwordChangeOtpExpires
+        ) {
+            throw new BadRequestException("Время действия кода истекло");
+        }
+
+        const saltRounds = 10;
+        user.passwordHash = await bcrypt.hash(newPassword, saltRounds);
+        (user as any).passwordChangeOtp = null;
+        (user as any).passwordChangeOtpExpires = null;
+
+        // Если юзер подтвердил свою почту через код сброса, автоматически снимаем флаг неподтвержденной почты
+        if (!user.isEmailConfirmed) {
+            user.isEmailConfirmed = true;
+        }
+        await this.usersService.save(user);
+
+        return this.login(user);
     }
 
     async login(user: any) {
@@ -55,6 +153,7 @@ export class AuthService {
             telegramId: user.telegramId,
             hasPassword: !!user.passwordHash,
             isEmailConfirmed: user.isEmailConfirmed,
+            pendingEmail: (user as any).pendingEmail || null,
         };
         return {
             access_token: this.jwtService.sign(payload),
@@ -106,6 +205,14 @@ export class AuthService {
                 data.first_name,
                 data.id.toString(),
             );
+        } else {
+            if (user.isEmailConfirmed === false && !user.email.endsWith("@telegram.local")) {
+                throw new ForbiddenException({
+                    message: "Email не подтвержден",
+                    unconfirmedEmail: true,
+                    email: user.email,
+                });
+            }
         }
 
         return this.login(user);

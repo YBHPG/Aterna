@@ -55,14 +55,35 @@ export class EmailDeliveryProcessor extends WorkerHost {
 
             let decryptedContent = this.cryptoService.decrypt(encryptedContent, iv, authTag);
 
-            const link = `${process.env.FRONTEND_URL}/messages/${messageId}`;
+            const link = `${process.env.FRONTEND_URL}`;
             const dashboardUrl = `${process.env.FRONTEND_URL}/dashboard`;
 
-            if (recipientEmail) {
-                if (user?.isEmailConfirmed === true) {
+            let sendEmail = false;
+            let sendTelegram = false;
+
+            if (recipientEmail === "telegram") {
+                sendTelegram = !!user?.telegramId;
+            } else if (recipientEmail === "both") {
+                sendTelegram = !!user?.telegramId;
+                sendEmail = user?.isEmailConfirmed === true;
+            } else if (recipientEmail === "email") {
+                sendEmail = user?.isEmailConfirmed === true;
+            } else {
+                // Поддержка старых сообщений, где был указан точный email
+                if (recipientEmail && !recipientEmail.endsWith("@telegram.local")) {
+                    sendEmail = user?.isEmailConfirmed === true;
+                }
+                if (user?.telegramId) {
+                    sendTelegram = true;
+                }
+            }
+
+            if (sendEmail) {
+                const targetEmail = user?.email || recipientEmail;
+                if (targetEmail && !targetEmail.endsWith("@telegram.local")) {
                     await this.emailService.sendNotificationEmail(
-                        recipientEmail,
-                        user.firstName,
+                        targetEmail,
+                        user?.firstName,
                         (message as any).createdAt,
                         decryptedContent,
                         link,
@@ -70,19 +91,25 @@ export class EmailDeliveryProcessor extends WorkerHost {
                     this.logger.log(`Email sent for message ${messageId}.`);
                 } else {
                     this.logger.warn(
-                        `User ${userId} has unconfirmed email or not found. Skipping email delivery.`,
+                        `User ${userId} has unconfirmed or dummy email. Skipping email delivery.`,
                     );
                 }
+            } else {
+                this.logger.log(`Skipping email delivery for message ${messageId}.`);
             }
 
-            if (user?.telegramId) {
+            if (sendTelegram) {
                 const telegramText = `У вас новое письмо из прошлого!\n\n${decryptedContent}`;
                 await this.telegramService.sendNotification(
-                    user.telegramId,
+                    user?.telegramId as string,
                     telegramText,
                     dashboardUrl,
                 );
                 this.logger.log(`Telegram notification sent for message ${messageId}.`);
+            } else if (user?.telegramId) {
+                this.logger.log(
+                    `Skipping Telegram delivery for message ${messageId} due to recipientEmail setting.`,
+                );
             }
 
             // Уничтожение расшифрованного текста из памяти сразу после рассылки (безопасность)

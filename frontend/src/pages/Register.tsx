@@ -53,9 +53,13 @@ const Register: React.FC = () => {
             } else {
                 await processDraftAndRedirect(); // токена нет, выводим тост о подтверждении почты
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Ошибка при регистрации:", error);
-            toast.error("Не удалось зарегистрироваться. Проверьте данные и попробуйте снова.");
+            if (error.response?.data?.message) {
+                toast(error.response.data.message, { icon: "ℹ️" });
+            } else {
+                toast.error("Не удалось зарегистрироваться. Проверьте данные и попробуйте снова.");
+            }
         }
     };
 

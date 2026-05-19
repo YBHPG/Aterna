@@ -136,7 +136,7 @@ describe("EmailDeliveryProcessor", () => {
             "John",
             mockMessage.createdAt,
             "decrypted-content",
-            `${process.env.FRONTEND_URL}/messages/message-id`,
+            `${process.env.FRONTEND_URL}`,
         );
         expect(telegramService.sendNotification).toHaveBeenCalledWith(
             "tg-123",
@@ -216,7 +216,7 @@ describe("EmailDeliveryProcessor", () => {
             "John",
             mockMessage.createdAt,
             "decrypted-content",
-            `${process.env.FRONTEND_URL}/messages/message-id`,
+            `${process.env.FRONTEND_URL}`,
         );
         expect(mockMessage.status).toBe(MessageStatus.ERROR);
         expect(mockSave).toHaveBeenCalled();

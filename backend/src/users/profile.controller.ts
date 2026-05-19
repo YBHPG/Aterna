@@ -40,10 +40,12 @@ export class ProfileController {
 
     @Patch("email")
     public async updateEmail(@CurrentUser() user: any, @Body() dto: UpdateEmailDto) {
-        await this.profileService.updateEmail(user.userId, dto);
-        return {
-            message: "Email обновлен. Пожалуйста, проверьте почту для подтверждения нового адреса.",
-        };
+        return this.profileService.updateEmail(user.userId, dto);
+    }
+
+    @Post("resend-confirmation")
+    public async resendConfirmationEmail(@CurrentUser() user: any) {
+        return this.profileService.resendConfirmationEmail(user.userId);
     }
 
     @Delete("telegram")

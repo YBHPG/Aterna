@@ -218,8 +218,22 @@ export default function Home() {
         }
 
         try {
+            let finalRecipient = data.recipientEmail;
+            if (isAuthenticated) {
+                if (selectedMethods.length === 2) {
+                    finalRecipient = "both";
+                } else if (selectedMethods.includes("telegram")) {
+                    finalRecipient = "telegram";
+                } else if (selectedMethods.includes("email")) {
+                    finalRecipient = "email";
+                } else if (hasTelegram && !hasEmail) {
+                    finalRecipient = "telegram";
+                }
+            }
+
             const payload = {
                 ...data,
+                recipientEmail: finalRecipient,
                 triggerDate: new Date(data.triggerDate).toISOString(), // UTC формат
             };
 
