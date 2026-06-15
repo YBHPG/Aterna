@@ -83,7 +83,15 @@ describe("AuthService", () => {
 
             const result = await authService.login(user);
 
-            expect(jwtService.sign).toHaveBeenCalledWith({ email: "test@test.com", sub: "1" });
+            expect(jwtService.sign).toHaveBeenCalledWith({
+                email: "test@test.com",
+                sub: "1",
+                firstName: undefined,
+                telegramId: undefined,
+                hasPassword: false,
+                isEmailConfirmed: undefined,
+                pendingEmail: null,
+            });
             expect(result).toEqual({ access_token: "signed_token" });
         });
     });

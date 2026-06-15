@@ -1,16 +1,46 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { lastValueFrom } from "rxjs";
 import { UsersService } from "../users/users.service";
 
 @Injectable()
-export class TelegramService {
+export class TelegramService implements OnModuleInit {
     private readonly logger = new Logger(TelegramService.name);
 
     constructor(
         private readonly httpService: HttpService,
         private readonly usersService: UsersService,
     ) {}
+
+    async onModuleInit() {
+        await this.setWebhook();
+    }
+
+    private async setWebhook(): Promise<void> {
+        const botToken = process.env.TELEGRAM_BOT_TOKEN;
+        if (!botToken) return;
+
+        try {
+            // Очищаем от возможных комментариев из .env (на всякий случай)
+            const baseUrl = (process.env.FRONTEND_URL || "").split(" ")[0].trim();
+            if (!baseUrl) {
+                this.logger.warn("FRONTEND_URL не настроен, невозможно установить webhook Telegram");
+                return;
+            }
+
+            const webhookUrl = `${baseUrl}/api/telegram/webhook`;
+            const url = `https://api.telegram.org/bot${botToken}/setWebhook`;
+            
+            await lastValueFrom(
+                this.httpService.post(url, {
+                    url: webhookUrl,
+                }),
+            );
+            this.logger.log(`[Telegram] Webhook успешно установлен на ${webhookUrl}`);
+        } catch (error: any) {
+            this.logger.error(`[Telegram] Ошибка при установке webhook: ${error.message}`);
+        }
+    }
 
     async sendNotification(telegramId: string, text: string, dashboardUrl: string): Promise<void> {
         const botToken = process.env.TELEGRAM_BOT_TOKEN;

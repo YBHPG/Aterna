@@ -7,6 +7,7 @@ import { CryptoService } from "../crypto/crypto.service";
 import { EmailService } from "../email/email.service";
 import { UsersService } from "../users/users.service";
 import { TelegramService } from "../auth/telegram.service";
+import { Logger } from "@nestjs/common";
 
 describe("EmailDeliveryProcessor", () => {
     let processor: EmailDeliveryProcessor;
@@ -36,6 +37,10 @@ describe("EmailDeliveryProcessor", () => {
     };
 
     beforeEach(async () => {
+        jest.spyOn(Logger.prototype, "error").mockImplementation(() => {});
+        jest.spyOn(Logger.prototype, "warn").mockImplementation(() => {});
+        jest.spyOn(Logger.prototype, "log").mockImplementation(() => {});
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 EmailDeliveryProcessor,
