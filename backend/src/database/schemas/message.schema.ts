@@ -32,6 +32,9 @@ export class Message {
 
   @Prop({ type: String, enum: MessageStatus, default: MessageStatus.PENDING })
   status: MessageStatus;
+
+  @Prop({ type: String, required: false })
+  importBatchId?: string;
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message);
