@@ -1,0 +1,18 @@
+[
+  {
+    "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "recipientEmail": "test@example.com",
+    "triggerDate": "2020-06-15T12:00:00.000Z",
+    "createdAt": "2020-06-15T09:30:00.000Z",
+    "content": "Привет из прошлого! Это сообщение было написано 15 июня 2020 года.",
+    "status": "pending"
+  },
+  {
+    "userId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "recipientEmail": "test@example.com",
+    "triggerDate": "2021-01-01T12:00:00.000Z",
+    "createdAt": "2021-01-01T10:00:00.000Z",
+    "content": "С Новым годом! Это письмо из 2021.",
+    "status": "pending"
+  }
+]
